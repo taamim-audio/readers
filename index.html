@@ -25,6 +25,10 @@
 <!-- ===== תצוגת מועמד ===== -->
 <main id="view-apply" class="container">
 
+  <div class="demo-banner">
+    ⚠️ <strong>גרסת הדגמה בלבד.</strong> אין למלא פרטים אמיתיים — הנתונים נשמרים רק בדפדפן שלך ולא נשלחים לצוות טעמים.
+  </div>
+
   <section class="card intro">
     <h2>מה מחפשים?</h2>
     <p>קוראים מצוינים להקלטת התורה כולה, בנוסחים שונים. ממלאים את הטופס, מצרפים דוגמת קריאה קצרה (אפשר כמה דוגמאות, גם בנוסחים שונים) — ואם מתאים, נזמין לראיון מקוון.</p>
@@ -102,21 +106,6 @@
       </label>
     </div>
 
-    <div class="grid-2">
-      <label>מעמד בישראל <span class="req">*</span>
-        <select name="residency" required>
-          <option value="">בחרו…</option>
-          <option>אזרחות ישראלית</option>
-          <option>תושבות קבע</option>
-          <option>אחר</option>
-        </select>
-      </label>
-
-      <label>שנת לידה (לא חובה)
-        <input type="number" name="birthYear" min="1930" max="2015" placeholder="למשל: 2002">
-      </label>
-    </div>
-
     <fieldset class="samples">
       <legend>דוגמאות קריאה <span class="req">*</span></legend>
       <p class="hint">צרפו הקלטה קצרה של קריאה בתורה. קוראים ביותר מנוסח אחד? אפשר להוסיף דוגמה נוספת לכל נוסח.</p>
@@ -129,13 +118,15 @@
     </label>
 
     <div id="form-error" class="error" hidden></div>
+    <p class="demo-note">⚠️ הדגמה בלבד: הלחיצה שומרת את הטופס בדפדפן שלך בלבד — שום מידע לא נשלח לצוות טעמים.</p>
     <button type="submit" class="btn btn-primary" id="submit-btn">שליחת מועמדות 🚀</button>
   </form>
 
   <section id="apply-success" class="card success" hidden>
     <div class="check">✅</div>
     <h2>המועמדות נשלחה!</h2>
-    <p>תודה רבה. אנחנו עוברים על כל הטפסים, ואם מתאים — נחזור אליך להזמנה לראיון מקוון.</p>
+    <p>הטופס נשמר בדפדפן זה (הדגמה בלבד — לא נשלח לשום מקום).</p>
+    <p>בגרסה המלאה: אנחנו עוברים על כל הטפסים, ואם מתאים — נחזור אליך להזמנה לראיון מקוון.</p>
   </section>
 </main>
 
@@ -143,9 +134,9 @@
 <main id="view-admin" class="container" hidden>
 
   <section id="admin-gate" class="card gate">
-    <h2>🔒 כניסת צוות</h2>
-    <p class="hint">האזור הזה מיועד לצוות טעמים בלבד.</p>
-    <label>קוד גישה
+    <h2>מסך ניהול — הדגמה</h2>
+    <p class="hint">בגרסת ההדגמה הנתונים נשמרים בדפדפן זה בלבד, והקוד הוא חלק מההדגמה — אינו הגנה אמיתית. בגרסה המלאה תהיה כניסה מאובטחת לצוות.</p>
+    <label>קוד הדגמה
       <input type="password" id="admin-code" inputmode="text" autocomplete="off">
     </label>
     <div id="gate-error" class="error" hidden>קוד שגוי, נסו שוב.</div>
@@ -154,7 +145,7 @@
 
   <section id="admin-panel" hidden>
     <div class="card admin-head">
-      <h2>ניהול פניות</h2>
+      <h2>ניהול פניות <span class="demo-chip">הדגמה — נתונים מקומיים בלבד</span></h2>
       <div class="stats" id="stats"></div>
       <div class="admin-actions">
         <button class="btn btn-green" id="export-xlsx">📊 ייצוא לאקסל</button>
