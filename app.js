@@ -287,7 +287,17 @@ async function sendMagicLink() {
   if (!email) { err.textContent = 'מלאו דוא״ל ואז בקשו קישור.'; err.hidden = false; return; }
   const redirectTo = window.location.origin + window.location.pathname + '#admin';
   const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: redirectTo } });
-  if (error) { err.textContent = 'שליחת הקישור נכשלה — בדקו את הדוא״ל.'; err.hidden = false; return; }
+  if (error) {
+    const code = (error && error.code) || '';
+    if (error.status === 422 || code === 'signup_disabled' || code === 'user_not_found') {
+      err.textContent = 'הכתובת הזו לא מופיעה ברשימת הבוחנים. אם נראית לכם טעות — פנו לצוות הטעמים.';
+    } else if (error.status === 429 || code === 'over_email_send_rate_limit') {
+      err.textContent = 'כבר נשלח קישור לא מזמן — מתינים דקה ומנסים שוב.';
+    } else {
+      err.textContent = 'שליחת הקישור נכשלה כרגע — נסו שוב בעוד דקה.';
+    }
+    err.hidden = false; return;
+  }
   msg.textContent = 'נשלח קישור כניסה לדוא״ל. לוחצים עליו — וחוזרים לכאן מחוברים.';
   msg.hidden = false;
 }
