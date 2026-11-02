@@ -2,7 +2,7 @@
 /* טעמים — מערכת פניות קוראים. Backend: Supabase (anon insert-only; reviewer reads via sign-in). */
 const SUPABASE_URL = 'https://gpipsjqkntcyczoxnnwa.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_9zCWAwdh5h1euDJ67i0LuA_nSM9iW_Y';
-const APP_VERSION = '10';
+const APP_VERSION = '11';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { flowType: 'implicit' } });
 const STATUSES = ['חדש', 'בבדיקה', 'זומן לראיון', 'התקבל', 'נדחה'];
 const OTHER = 'אחר';
@@ -94,7 +94,7 @@ function addSampleRow() {
     '<div class="grid-2">' +
     '<label>נוסח הדוגמה <span class="req">*</span>' +
     '<select class="sample-nusach" required>' +
-    '<option value="">בחרו…</option><option>אשכנז</option><option>ספרד</option><option>תימן</option><option>אחר</option>' +
+    '<option value="">בחרו…</option><option>אשכנזי</option><option>ספרדי ירושלמי</option><option>ספרדי מרוקאי</option><option>תימני</option><option>אחר</option>' +
     '</select></label>' +
     '<label>מה מוקלט? (פרשה / פסוקים)' +
     '<input type="text" class="sample-desc" placeholder="למשל: בראשית א׳"></label>' +
