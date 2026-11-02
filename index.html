@@ -11,7 +11,7 @@
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script defer src="app.js?v=8"></script>
+<script defer src="app.js?v=9"></script>
 </head>
 <body>
 
@@ -130,19 +130,15 @@
 
   <section id="admin-gate" class="card gate">
     <h2>כניסת צוות בלבד</h2>
-    <p class="hint">הגישה מיועדת לצוות טעמים בלבד. מזינים דוא״ל וסיסמה, או מבקשים קישור כניסה לדוא״ל.</p>
+    <p class="hint">הגישה מיועדת לצוות טעמים בלבד. מזינים דוא״ל ומבקשים קישור כניסה — בלי סיסמה.</p>
     <p class="hint" id="app-version" style="opacity:.55; font-size:.8em;"></p>
     <label>דוא״ל
       <input type="email" id="admin-email" autocomplete="email" placeholder="you@example.com">
     </label>
-    <label>סיסמה
-      <input type="password" id="admin-pass" autocomplete="current-password">
-    </label>
     <div id="gate-error" class="error" hidden></div>
     <div id="gate-msg" class="hint" hidden></div>
     <div class="gate-actions">
-      <button class="btn btn-primary" id="gate-btn">כניסה</button>
-      <button class="btn btn-soft" id="magic-btn">שליחת קישור כניסה לדוא״ל</button>
+      <button class="btn btn-primary" id="magic-btn">שליחת קישור כניסה לדוא״ל</button>
     </div>
   </section>
 
