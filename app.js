@@ -2,7 +2,7 @@
 /* טעמים — מערכת פניות קוראים. Backend: Supabase (anon insert-only; reviewer reads via sign-in). */
 const SUPABASE_URL = 'https://gpipsjqkntcyczoxnnwa.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_9zCWAwdh5h1euDJ67i0LuA_nSM9iW_Y';
-const APP_VERSION = '8';
+const APP_VERSION = '9';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { flowType: 'implicit' } });
 const STATUSES = ['חדש', 'בבדיקה', 'זומן לראיון', 'התקבל', 'נדחה'];
 const OTHER = 'אחר';
@@ -270,16 +270,6 @@ async function renderAdmin() {
   document.getElementById('admin-panel').hidden = !ok;
   if (ok) refreshAdminList();
 }
-async function trySignIn() {
-  const email = document.getElementById('admin-email').value.trim();
-  const pass = document.getElementById('admin-pass').value;
-  const err = document.getElementById('gate-error');
-  err.hidden = true;
-  if (!email || !pass) { err.textContent = 'מלאו דוא״ל וסיסמה.'; err.hidden = false; return; }
-  const { error } = await sb.auth.signInWithPassword({ email, password: pass });
-  if (error) { err.textContent = 'כניסה נכשלה — בדקו את הפרטים.'; err.hidden = false; return; }
-  renderAdmin();
-}
 async function sendMagicLink() {
   const email = document.getElementById('admin-email').value.trim();
   const msg = document.getElementById('gate-msg');
@@ -464,11 +454,10 @@ document.addEventListener('DOMContentLoaded', () => {
   addSampleRow();
   document.getElementById('add-sample').addEventListener('click', addSampleRow);
   document.getElementById('apply-form').addEventListener('submit', submitForm);
-  document.getElementById('gate-btn').addEventListener('click', trySignIn);
   document.getElementById('magic-btn').addEventListener('click', sendMagicLink);
   const vb = document.getElementById('app-version');
   if (vb) vb.textContent = 'גרסה ' + APP_VERSION;
-  document.getElementById('admin-pass').addEventListener('keydown', e => { if (e.key === 'Enter') trySignIn(); });
+  document.getElementById('admin-email').addEventListener('keydown', e => { if (e.key === 'Enter') sendMagicLink(); });
   document.getElementById('signout-btn').addEventListener('click', signOut);
   document.getElementById('export-xlsx').addEventListener('click', downloadXlsx);
   document.getElementById('export-zip').addEventListener('click', downloadZip);
