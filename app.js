@@ -1,58 +1,10 @@
 'use strict';
-/* טעמים — מערכת פניות קוראים. גרסת בדיקה: הנתונים נשמרים בדפדפן בלבד (IndexedDB). */
-const ADMIN_CODE = 'taamim2026';
-const DB_NAME = 'taamimReadersDB';
-const STORE = 'applications';
+/* טעמים — מערכת פניות קוראים. Backend: Supabase (anon insert-only; reviewer reads via sign-in). */
+const SUPABASE_URL = 'https://gpipsjqkntcyczoxnnwa.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_9zCWAwdh5h1euDJ67i0LuA_nSM9iW_Y';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const STATUSES = ['חדש', 'בבדיקה', 'זומן לראיון', 'התקבל', 'נדחה'];
-let db = null;
-
-/* ---------- IndexedDB ---------- */
-function openDB() {
-  return new Promise((res, rej) => {
-    const r = indexedDB.open(DB_NAME, 1);
-    r.onupgradeneeded = e => {
-      e.target.result.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
-    };
-    r.onsuccess = e => { db = e.target.result; res(db); };
-    r.onerror = e => rej(e.target.error);
-  });
-}
-function store(mode) { return db.transaction(STORE, mode).objectStore(STORE); }
-function addApp(rec) {
-  return new Promise((res, rej) => {
-    const q = store('readwrite').add(rec);
-    q.onsuccess = () => res(q.result);
-    q.onerror = e => rej(e.target.error);
-  });
-}
-function allApps() {
-  return new Promise((res, rej) => {
-    const q = store('readonly').getAll();
-    q.onsuccess = () => res(q.result || []);
-    q.onerror = e => rej(e.target.error);
-  });
-}
-function putApp(rec) {
-  return new Promise((res, rej) => {
-    const q = store('readwrite').put(rec);
-    q.onsuccess = () => res();
-    q.onerror = e => rej(e.target.error);
-  });
-}
-function delApp(id) {
-  return new Promise((res, rej) => {
-    const q = store('readwrite').delete(id);
-    q.onsuccess = () => res();
-    q.onerror = e => rej(e.target.error);
-  });
-}
-function clearApps() {
-  return new Promise((res, rej) => {
-    const q = store('readwrite').clear();
-    q.onsuccess = () => res();
-    q.onerror = e => rej(e.target.error);
-  });
-}
+const OTHER = 'אחר';
 
 /* ---------- עזר ---------- */
 function esc(s) {
@@ -65,9 +17,48 @@ function fmtDate(iso) {
 }
 function fmtSize(b) {
   if (b > 1048576) return (b / 1048576).toFixed(1) + ' MB';
-  return Math.round(b / 1024) + ' KB';
+  return Math.round((b || 0) / 1024) + ' KB';
 }
 function statusClass(s) { return 'st-' + String(s).replace(/\s+/g, '-'); }
+function extOf(name) {
+  const m = /\.([a-z0-9]+)$/i.exec(name || '');
+  return m ? m[1].toLowerCase() : 'webm';
+}
+function extFromMime(mime) {
+  if (/mp4|m4a/.test(mime)) return 'm4a';
+  if (/mpeg|mp3/.test(mime)) return 'mp3';
+  if (/ogg/.test(mime)) return 'ogg';
+  if (/wav/.test(mime)) return 'wav';
+  return 'webm';
+}
+function safeFileName(n) { return String(n || 'audio').replace(/[\\/:*?"<>|#%&{}$!'@+`=~]/g, '_').slice(0, 80); }
+
+/* ---------- "אחר" מחייב פירוש ---------- */
+/* לכל select שיש בו אופציית "אחר" מוסיפים שדה טקסט חובה שמופיע בבחירת אחר */
+function wireOtherField(select) {
+  const hasOther = [...select.options].some(o => o.value === OTHER || o.text === OTHER);
+  if (!hasOther) return;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'other-text';
+  input.placeholder = 'פרטו…';
+  input.hidden = true;
+  select.insertAdjacentElement('afterend', input);
+  const sync = () => {
+    const isOther = select.value === OTHER;
+    input.hidden = !isOther;
+    input.required = isOther;
+    if (!isOther) input.value = '';
+  };
+  select.addEventListener('change', sync);
+  sync();
+}
+/* מחזיר את הערך הסופי של select: אם נבחר אחר — "אחר: <פירוש>" */
+function selectFinalValue(select) {
+  if (select.value !== OTHER) return select.value;
+  const input = select.parentElement.querySelector('.other-text');
+  return OTHER + ': ' + (input ? input.value.trim() : '');
+}
 
 /* ---------- ניתוב ---------- */
 function route() {
@@ -80,6 +71,9 @@ window.addEventListener('hashchange', route);
 
 /* ---------- טופס מועמד ---------- */
 let sampleCount = 0;
+function recorderSupported() {
+  return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
+}
 function addSampleRow() {
   sampleCount++;
   const wrap = document.createElement('div');
@@ -87,8 +81,15 @@ function addSampleRow() {
   wrap.innerHTML =
     '<div class="row-head"><span>דוגמה ' + sampleCount + '</span>' +
     '<button type="button" class="remove-sample" title="הסרה">✕</button></div>' +
-    '<label>קובץ אודיו <span class="req">*</span>' +
-    '<input type="file" accept="audio/*" class="sample-file" required></label>' +
+    '<label>העלאת קובץ אודיו' +
+    '<input type="file" accept="audio/*" class="sample-file"></label>' +
+    '<div class="rec-block">' +
+    '<button type="button" class="btn btn-soft rec-btn">הקלטה כאן בדף</button>' +
+    '<span class="rec-state"></span>' +
+    '<audio class="rec-play" controls hidden></audio>' +
+    '<button type="button" class="btn btn-soft rec-redo" hidden>הקלטה מחדש</button>' +
+    '</div>' +
+    '<p class="hint rec-unsupported" hidden>הדפדפן לא תומך בהקלטה ישירה — אפשר להעלות קובץ אודיו קיים.</p>' +
     '<div class="grid-2">' +
     '<label>נוסח הדוגמה <span class="req">*</span>' +
     '<select class="sample-nusach" required>' +
@@ -98,14 +99,71 @@ function addSampleRow() {
     '<input type="text" class="sample-desc" placeholder="למשל: בראשית א׳"></label>' +
     '</div>';
   wrap.querySelector('.remove-sample').addEventListener('click', () => {
+    stopRecording(wrap);
     wrap.remove();
     renumberSamples();
   });
+  wireOtherField(wrap.querySelector('.sample-nusach'));
+  setupRecorder(wrap);
   document.getElementById('samples-list').appendChild(wrap);
 }
 function renumberSamples() {
   document.querySelectorAll('#samples-list .sample-row .row-head span')
     .forEach((el, i) => { el.textContent = 'דוגמה ' + (i + 1); });
+}
+
+/* ---------- הקלטה בדף ---------- */
+function setupRecorder(row) {
+  const btn = row.querySelector('.rec-btn');
+  const state = row.querySelector('.rec-state');
+  const player = row.querySelector('.rec-play');
+  const redo = row.querySelector('.rec-redo');
+  if (!recorderSupported()) {
+    btn.hidden = true;
+    row.querySelector('.rec-unsupported').hidden = false;
+    return;
+  }
+  row._recorder = null;
+  row._chunks = [];
+  row._recordedBlob = null;
+  btn.addEventListener('click', async () => {
+    if (row._recorder && row._recorder.state === 'recording') { stopRecording(row); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const rec = new MediaRecorder(stream);
+      row._recorder = rec;
+      row._chunks = [];
+      rec.ondataavailable = e => { if (e.data.size) row._chunks.push(e.data); };
+      rec.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+        const mime = rec.mimeType || 'audio/webm';
+        row._recordedBlob = new Blob(row._chunks, { type: mime });
+        player.src = URL.createObjectURL(row._recordedBlob);
+        player.hidden = false;
+        redo.hidden = false;
+        btn.textContent = 'הקלטה כאן בדף';
+        state.textContent = 'נשמרה הקלטה (' + fmtSize(row._recordedBlob.size) + ') — אפשר להאזין לפני השליחה';
+        row.querySelector('.sample-file').value = '';
+      };
+      rec.start();
+      btn.textContent = 'עצירת הקלטה';
+      state.textContent = 'מקליט… לחצו שוב לעצירה';
+      player.hidden = true;
+      redo.hidden = true;
+    } catch (err) {
+      state.textContent = 'לא ניתן לגשת למיקרופון — בדקו הרשאות או העלו קובץ.';
+    }
+  });
+  redo.addEventListener('click', () => {
+    row._recordedBlob = null;
+    player.hidden = true;
+    player.removeAttribute('src');
+    redo.hidden = true;
+    state.textContent = '';
+  });
+}
+function stopRecording(row) {
+  if (row._recorder && row._recorder.state === 'recording') row._recorder.stop();
 }
 
 function showError(msg) {
@@ -124,37 +182,71 @@ async function submitForm(ev) {
   for (const k of required) {
     if (!f.elements[k].value.trim()) { showError('חסר שדה חובה — בדקו שכל השדות המסומנים * מולאו.'); return; }
   }
+  for (const sel of f.querySelectorAll('select')) {
+    if (sel.value === OTHER) {
+      const t = sel.parentElement.querySelector('.other-text');
+      if (!t || !t.value.trim()) { showError('בכל בחירת "אחר" צריך לפרט בכתב — השלימו את השדה החסר.'); return; }
+    }
+  }
   const rows = [...document.querySelectorAll('#samples-list .sample-row')];
   const samples = [];
   for (const row of rows) {
     const file = row.querySelector('.sample-file').files[0];
-    const nusach = row.querySelector('.sample-nusach').value;
+    const nusachSel = row.querySelector('.sample-nusach');
+    const nusach = nusachSel.value ? selectFinalValue(nusachSel) : '';
     const desc = row.querySelector('.sample-desc').value.trim();
-    if (file && !nusach) { showError('בחרו נוסח לכל דוגמת קריאה.'); return; }
-    if (file) samples.push({ name: file.name, type: file.type, size: file.size, nusach, desc, blob: file });
+    const blob = file || row._recordedBlob;
+    if (blob && !nusachSel.value) { showError('בחרו נוסח לכל דוגמת קריאה.'); return; }
+    if (blob) {
+      const name = file ? file.name : 'recording.' + extFromMime(blob.type);
+      samples.push({ blob, name, type: blob.type || 'audio/webm', size: blob.size, nusach, desc });
+    }
   }
-  if (!samples.length) { showError('צרפו לפחות דוגמת קריאה אחת.'); return; }
+  if (!samples.length) { showError('צרפו לפחות דוגמת קריאה אחת — בהעלאה או בהקלטה בדף.'); return; }
 
   const btn = document.getElementById('submit-btn');
   btn.disabled = true; btn.textContent = 'שולח…';
   try {
-    await addApp({
-      createdAt: new Date().toISOString(),
+    const publicId = crypto.randomUUID();
+    /* 1. העלאת ההקלטות לאחסון הפרטי */
+    const uploaded = [];
+    for (let i = 0; i < samples.length; i++) {
+      const s = samples[i];
+      const path = publicId + '/' + (i + 1) + '-' + safeFileName(s.name);
+      const up = await sb.storage.from('samples').upload(path, s.blob, { contentType: s.type });
+      if (up.error) throw new Error('upload: ' + up.error.message);
+      uploaded.push({ path, s });
+    }
+    /* 2. רשומת המועמדות */
+    const ins = await sb.from('applications').insert({
+      public_id: publicId,
       name: f.elements.name.value.trim(),
       phone: f.elements.phone.value.trim(),
-      email: f.elements.email.value.trim(),
+      email: f.elements.email.value.trim() || null,
       area: f.elements.area.value.trim(),
       yeshiva: f.elements.yeshiva.value.trim(),
-      nusach: f.elements.nusach.value,
-      experience: f.elements.experience.value.trim(),
-      employment: f.elements.employment.value,
-      military: f.elements.military.value,
-      notes: f.elements.notes.value.trim(),
-      status: 'חדש',
-      reviewerNotes: '',
-      samples
+      nusach: selectFinalValue(f.elements.nusach),
+      experience: f.elements.experience.value.trim() || null,
+      employment: selectFinalValue(f.elements.employment),
+      military: selectFinalValue(f.elements.military),
+      notes: f.elements.notes.value.trim() || null
     });
+    if (ins.error) throw new Error('insert application: ' + ins.error.message);
+    /* 3. רשומות הדוגמאות */
+    const sampleRows = uploaded.map(({ path, s }) => ({
+      application_public_id: publicId,
+      path,
+      filename: s.name,
+      content_type: s.type,
+      size_bytes: s.size,
+      nusach: s.nusach,
+      description: s.desc || null
+    }));
+    const insS = await sb.from('samples').insert(sampleRows);
+    if (insS.error) throw new Error('insert samples: ' + insS.error.message);
+
     f.reset();
+    document.querySelectorAll('#apply-form .other-text').forEach(t => { t.hidden = true; t.required = false; });
     document.getElementById('samples-list').innerHTML = '';
     sampleCount = 0; addSampleRow();
     document.getElementById('apply-form').hidden = true;
@@ -162,32 +254,64 @@ async function submitForm(ev) {
     document.getElementById('apply-success').hidden = false;
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (err) {
-    showError('משהו השתבש בשמירה. נסו שוב, ואם זה חוזר — צרו קשר.');
+    showError('השליחה נכשלה (' + (err && err.message ? err.message : 'תקלה') + '). נסו שוב, ואם זה חוזר — צרו קשר.');
   } finally {
-    btn.disabled = false; btn.textContent = 'שליחת מועמדות 🚀';
+    btn.disabled = false; btn.textContent = 'שליחת מועמדות';
   }
 }
 
 /* ---------- מסך ניהול ---------- */
 let adminApps = [];
-function renderAdmin() {
-  const ok = sessionStorage.getItem('taamimAdminOK') === '1';
+async function renderAdmin() {
+  const { data } = await sb.auth.getSession();
+  const ok = !!data.session;
   document.getElementById('admin-gate').hidden = ok;
   document.getElementById('admin-panel').hidden = !ok;
   if (ok) refreshAdminList();
 }
-function tryGate() {
-  const val = document.getElementById('admin-code').value;
-  if (val === ADMIN_CODE) {
-    sessionStorage.setItem('taamimAdminOK', '1');
-    document.getElementById('gate-error').hidden = true;
-    renderAdmin();
-  } else {
-    document.getElementById('gate-error').hidden = false;
-  }
+async function trySignIn() {
+  const email = document.getElementById('admin-email').value.trim();
+  const pass = document.getElementById('admin-pass').value;
+  const err = document.getElementById('gate-error');
+  err.hidden = true;
+  if (!email || !pass) { err.textContent = 'מלאו דוא״ל וסיסמה.'; err.hidden = false; return; }
+  const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+  if (error) { err.textContent = 'כניסה נכשלה — בדקו את הפרטים.'; err.hidden = false; return; }
+  renderAdmin();
+}
+async function sendMagicLink() {
+  const email = document.getElementById('admin-email').value.trim();
+  const msg = document.getElementById('gate-msg');
+  const err = document.getElementById('gate-error');
+  err.hidden = true; msg.hidden = true;
+  if (!email) { err.textContent = 'מלאו דוא״ל ואז בקשו קישור.'; err.hidden = false; return; }
+  const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+  if (error) { err.textContent = 'שליחת הקישור נכשלה — בדקו את הדוא״ל.'; err.hidden = false; return; }
+  msg.textContent = 'נשלח קישור כניסה לדוא״ל. לוחצים עליו — וחוזרים לכאן מחוברים.';
+  msg.hidden = false;
+}
+async function signOut() {
+  await sb.auth.signOut();
+  renderAdmin();
 }
 async function refreshAdminList() {
-  adminApps = (await allApps()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const { data, error } = await sb
+    .from('applications')
+    .select('*, samples(*)')
+    .order('created_at', { ascending: false });
+  if (error) {
+    document.getElementById('apps-list').innerHTML =
+      '<p class="error">טעינת הפניות נכשלה: ' + esc(error.message) + '</p>';
+    return;
+  }
+  adminApps = data || [];
+  /* קישורי האזנה חתומים לכל דוגמה */
+  for (const a of adminApps) {
+    for (const s of (a.samples || [])) {
+      const r = await sb.storage.from('samples').createSignedUrl(s.path, 3600);
+      s.signedUrl = r.data && r.data.signedUrl ? r.data.signedUrl : null;
+    }
+  }
   renderStats();
   renderApps(document.getElementById('search').value.trim());
 }
@@ -216,22 +340,24 @@ function renderApps(filter) {
     const card = document.createElement('div');
     card.className = 'app-card';
     let samplesHtml = '';
-    (a.samples || []).forEach((s, i) => {
-      const url = URL.createObjectURL(s.blob);
+    (a.samples || []).forEach(s => {
+      const dlName = a.name + ' - ' + s.nusach + (s.description ? ' - ' + s.description : '') + '.' + extOf(s.filename);
       samplesHtml +=
         '<div class="sample-item">' +
-        '<div class="sample-meta">🎵 ' + esc(s.nusach) +
-        (s.desc ? ' — ' + esc(s.desc) : '') +
-        ' <span style="opacity:.6">(' + esc(s.name) + ', ' + fmtSize(s.size) + ')</span></div>' +
-        '<audio controls preload="metadata" src="' + url + '"></audio>' +
-        '<a class="dl-link" href="' + url + '" download="' + esc(a.name + ' - ' + s.nusach + (s.desc ? ' - ' + s.desc : '') + '.' + extOf(s.name)) + '">⬇ הורדת ההקלטה</a>' +
+        '<div class="sample-meta">' + esc(s.nusach) +
+        (s.description ? ' — ' + esc(s.description) : '') +
+        ' <span style="opacity:.6">(' + esc(s.filename) + ', ' + fmtSize(s.size_bytes) + ')</span></div>' +
+        (s.signedUrl
+          ? '<audio controls preload="metadata" src="' + esc(s.signedUrl) + '"></audio>' +
+            '<a class="dl-link" href="' + esc(s.signedUrl) + '" download="' + esc(dlName) + '">הורדת ההקלטה</a>'
+          : '<div class="error">לא ניתן לגשת להקלטה כרגע.</div>') +
         '</div>';
     });
     const statusOpts = STATUSES.map(s =>
       '<option' + (s === a.status ? ' selected' : '') + '>' + s + '</option>').join('');
     card.innerHTML =
       '<div class="app-head"><h3>' + esc(a.name) + '</h3>' +
-      '<span class="app-date">' + fmtDate(a.createdAt) + '</span></div>' +
+      '<span class="app-date">' + fmtDate(a.created_at) + '</span></div>' +
       '<span class="status-chip ' + statusClass(a.status) + '">' + esc(a.status) + '</span>' +
       '<div class="fields" style="margin-top:10px">' +
       field('טלפון', a.phone) + field('דוא״ל', a.email) +
@@ -242,33 +368,32 @@ function renderApps(filter) {
       '</div>' +
       '<div class="samples-block"><b>דוגמאות קריאה (' + (a.samples || []).length + ')</b>' + samplesHtml + '</div>' +
       '<div class="status-row"><b>סטטוס:</b><select class="status-select">' + statusOpts + '</select></div>' +
-      '<textarea class="notes-area" rows="2" placeholder="הערות צוות (לא גלוי למועמד)">' + esc(a.reviewerNotes || '') + '</textarea>' +
+      '<textarea class="notes-area" rows="2" placeholder="הערות צוות (לא גלוי למועמד)">' + esc(a.reviewer_notes || '') + '</textarea>' +
       '<div class="app-actions">' +
       '<button class="btn btn-soft notes-save">שמירת הערות</button>' +
       '<button class="btn btn-danger del-btn">מחיקת פנייה</button>' +
       '</div>';
     card.querySelector('.status-select').addEventListener('change', async ev => {
-      a.status = ev.target.value;
-      await putApp(a);
+      const r = await sb.from('applications').update({ status: ev.target.value }).eq('public_id', a.public_id);
+      if (r.error) alert('עדכון הסטטוס נכשל: ' + r.error.message);
       refreshAdminList();
     });
     card.querySelector('.notes-save').addEventListener('click', async () => {
-      a.reviewerNotes = card.querySelector('.notes-area').value;
-      await putApp(a);
+      const r = await sb.from('applications')
+        .update({ reviewer_notes: card.querySelector('.notes-area').value }).eq('public_id', a.public_id);
+      if (r.error) alert('שמירת ההערות נכשלה: ' + r.error.message);
       refreshAdminList();
     });
     card.querySelector('.del-btn').addEventListener('click', async () => {
-      if (confirm('למחוק את הפנייה של ' + a.name + '?')) {
-        await delApp(a.id);
-        refreshAdminList();
-      }
+      if (!confirm('למחוק את הפנייה של ' + a.name + '? ההקלטות יימחקו גם כן.')) return;
+      const paths = (a.samples || []).map(s => s.path);
+      if (paths.length) await sb.storage.from('samples').remove(paths);
+      const r = await sb.from('applications').delete().eq('public_id', a.public_id);
+      if (r.error) alert('המחיקה נכשלה: ' + r.error.message);
+      refreshAdminList();
     });
     list.appendChild(card);
   }
-}
-function extOf(name) {
-  const m = /\.([a-z0-9]+)$/i.exec(name || '');
-  return m ? m[1] : 'mp3';
 }
 
 /* ---------- ייצוא ---------- */
@@ -280,9 +405,9 @@ function exportXlsx() {
   const rows = adminApps.map(a => [
     a.name, a.phone, a.email || '', a.area, a.yeshiva, a.nusach, a.experience || '',
     a.employment, a.military,
-    (a.samples || []).map(s => s.nusach + (s.desc ? ' (' + s.desc + ')' : '')).join('; '),
-    a.notes || '', a.status, a.reviewerNotes || '',
-    new Date(a.createdAt).toLocaleString('he-IL')
+    (a.samples || []).map(s => s.nusach + (s.description ? ' (' + s.description + ')' : '')).join('; '),
+    a.notes || '', a.status, a.reviewer_notes || '',
+    new Date(a.created_at).toLocaleString('he-IL')
   ]);
   const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
   ws['!cols'] = headers.map(() => ({ wch: 18 }));
@@ -301,10 +426,16 @@ async function downloadZip() {
   const zip = new JSZip();
   zip.file('taamim-applications.xlsx', XLSX.write(wb, { bookType: 'xlsx', type: 'array' }));
   for (const a of adminApps) {
-    const dir = zip.folder(String(a.id) + ' - ' + a.name);
-    (a.samples || []).forEach((s, i) => {
-      dir.file((i + 1) + ' - ' + s.nusach + (s.desc ? ' - ' + s.desc : '') + '.' + extOf(s.name), s.blob);
-    });
+    const dir = zip.folder(a.public_id.slice(0, 8) + ' - ' + a.name);
+    for (let i = 0; i < (a.samples || []).length; i++) {
+      const s = a.samples[i];
+      if (!s.signedUrl) continue;
+      try {
+        const resp = await fetch(s.signedUrl);
+        const blob = await resp.blob();
+        dir.file((i + 1) + ' - ' + s.nusach + (s.description ? ' - ' + s.description : '') + '.' + extOf(s.filename), blob);
+      } catch (e) { /* מדלגים על קובץ שנכשל */ }
+    }
   }
   const blob = await zip.generateAsync({ type: 'blob' });
   const url = URL.createObjectURL(blob);
@@ -316,18 +447,18 @@ async function downloadZip() {
 }
 
 /* ---------- אתחול ---------- */
-document.addEventListener('DOMContentLoaded', async () => {
-  await openDB();
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('#apply-form select').forEach(wireOtherField);
   addSampleRow();
   document.getElementById('add-sample').addEventListener('click', addSampleRow);
   document.getElementById('apply-form').addEventListener('submit', submitForm);
-  document.getElementById('gate-btn').addEventListener('click', tryGate);
-  document.getElementById('admin-code').addEventListener('keydown', e => { if (e.key === 'Enter') tryGate(); });
+  document.getElementById('gate-btn').addEventListener('click', trySignIn);
+  document.getElementById('magic-btn').addEventListener('click', sendMagicLink);
+  document.getElementById('admin-pass').addEventListener('keydown', e => { if (e.key === 'Enter') trySignIn(); });
+  document.getElementById('signout-btn').addEventListener('click', signOut);
   document.getElementById('export-xlsx').addEventListener('click', downloadXlsx);
   document.getElementById('export-zip').addEventListener('click', downloadZip);
-  document.getElementById('clear-all').addEventListener('click', async () => {
-    if (confirm('למחוק את כל הפניות? אי אפשר לשחזר.')) { await clearApps(); refreshAdminList(); }
-  });
   document.getElementById('search').addEventListener('input', e => renderApps(e.target.value.trim()));
+  sb.auth.onAuthStateChange(() => { if (location.hash === '#admin') renderAdmin(); });
   route();
 });
