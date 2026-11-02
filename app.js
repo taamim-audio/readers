@@ -2,7 +2,7 @@
 /* טעמים — מערכת פניות קוראים. Backend: Supabase (anon insert-only; reviewer reads via sign-in). */
 const SUPABASE_URL = 'https://gpipsjqkntcyczoxnnwa.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_9zCWAwdh5h1euDJ67i0LuA_nSM9iW_Y';
-const APP_VERSION = '19';
+const APP_VERSION = '20';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { flowType: 'implicit' } });
 const STATUSES = ['חדש', 'בבדיקה', 'זומן לראיון', 'התקבל', 'נדחה'];
 const OTHER = 'אחר';
@@ -425,7 +425,7 @@ async function refreshAdminList() {
       /* להקלטות webm/opus (הקלטה בדף מ-Chrome) מחפשים עותק AAC שהומר — Safari באייפון לא מנגן webm */
       s.convSignedUrl = null;
       s.needsRepair = null;
-      if (/webm|ogg|opus/i.test(s.content_type || '')) {
+      if (/webm|ogg|opus|wav/i.test(s.content_type || '')) {
         const convPath = s.path.replace(/\.[a-z0-9]+$/i, '.conv.m4a');
         const rc = await sb.storage.from('samples').createSignedUrl(convPath, 3600);
         s.convSignedUrl = rc.data && rc.data.signedUrl ? rc.data.signedUrl : null;
@@ -477,9 +477,18 @@ async function repairMissingConversions() {
           if (Math.abs(outAudio.duration - audio.duration) > 1 || outAudio.duration < 2) continue;
           const up = await sb.storage.from('samples').upload(s.needsRepair, blob, { contentType: 'audio/mp4' });
           if (up.error) continue;
+          /* הופך לקובץ הפעיל: שורת הדוגמה מצביעה ל-M4A; המקור נשאר באחסון כגיבוי */
+          const newName = String(s.filename || 'recording').replace(/\.[a-z0-9]+$/i, '.m4a');
+          const upd = await sb.from('samples').update({ path: s.needsRepair, filename: newName, content_type: 'audio/mp4', size_bytes: blob.size }).eq('id', s.id);
+          if (upd.error) continue;
+          s.path = s.needsRepair;
+          s.filename = newName;
+          s.content_type = 'audio/mp4';
+          s.size_bytes = blob.size;
           const rc = await sb.storage.from('samples').createSignedUrl(s.needsRepair, 3600);
-          s.convSignedUrl = rc.data && rc.data.signedUrl ? rc.data.signedUrl : null;
-          if (s.convSignedUrl) { s.needsRepair = null; changed = true; }
+          s.signedUrl = rc.data && rc.data.signedUrl ? rc.data.signedUrl : s.signedUrl;
+          s.needsRepair = null;
+          changed = true;
         } catch (e) { /* נשאר כמו שהוא */ }
       }
     }
