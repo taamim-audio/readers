@@ -136,3 +136,9 @@ fieldset.samples legend{font-weight:800;padding:0 8px}
 .other-text { margin-top: 6px; }
 .gate-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
 .check { font-size: 2.4rem; font-weight: 800; color: #2e7d32; }
+
+/* מצורפים לכל דוגמה */
+.attached-list { list-style: none; margin: 6px 0 0; padding: 0; }
+.attached-list li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 3px 0; font-size: 0.92em; }
+.attached-list li.attached-head { font-weight: 700; color: #37474F; border-bottom: 1px dashed #FFC727; margin-bottom: 2px; }
+.attach-remove { background: none; border: none; color: #B71C1C; font-size: 1em; cursor: pointer; padding: 0 4px; }
