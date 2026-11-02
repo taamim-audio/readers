@@ -2,7 +2,7 @@
 /* טעמים — מערכת פניות קוראים. Backend: Supabase (anon insert-only; reviewer reads via sign-in). */
 const SUPABASE_URL = 'https://gpipsjqkntcyczoxnnwa.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_9zCWAwdh5h1euDJ67i0LuA_nSM9iW_Y';
-const APP_VERSION = '18';
+const APP_VERSION = '19';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { flowType: 'implicit' } });
 const STATUSES = ['חדש', 'בבדיקה', 'זומן לראיון', 'התקבל', 'נדחה'];
 const OTHER = 'אחר';
@@ -85,7 +85,31 @@ window.addEventListener('hashchange', route);
 /* ---------- טופס מועמד ---------- */
 let sampleCount = 0;
 function recorderSupported() {
-  return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
+  return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia &&
+    (window.MediaRecorder || window.AudioContext || window.webkitAudioContext));
+}
+function canEncodeAacMp4() {
+  try { return !!(window.MediaRecorder && MediaRecorder.isTypeSupported('audio/mp4;codecs=mp4a.40.2')); } catch (e) { return false; }
+}
+/* קידוד WAV (PCM 16-bit מונו) — מתנגן בכל דפדפן, בלי איבוד איכות */
+function encodeWavBuffers(chunks, sampleRate) {
+  let total = 0;
+  for (const c of chunks) total += c.length;
+  const pcm = new Float32Array(total);
+  let off = 0;
+  for (const c of chunks) { pcm.set(c, off); off += c.length; }
+  const buf = new ArrayBuffer(44 + total * 2);
+  const v = new DataView(buf);
+  const wr = (o, str) => { for (let i = 0; i < str.length; i++) v.setUint8(o + i, str.charCodeAt(i)); };
+  wr(0, 'RIFF'); v.setUint32(4, 36 + total * 2, true); wr(8, 'WAVE');
+  wr(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sampleRate, true); v.setUint32(28, sampleRate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  wr(36, 'data'); v.setUint32(40, total * 2, true);
+  for (let i = 0; i < total; i++) {
+    const x = Math.max(-1, Math.min(1, pcm[i]));
+    v.setInt16(44 + i * 2, x < 0 ? x * 32768 : x * 32767, true);
+  }
+  return new Blob([buf], { type: 'audio/wav' });
 }
 function addSampleRow(kind) {
   kind = (kind === 'haftarah') ? 'haftarah' : 'torah';
@@ -185,13 +209,24 @@ function setupRecorder(row) {
   row._recorder = null;
   row._chunks = [];
   btn.addEventListener('click', async () => {
-    if (row._recorder && row._recorder.state === 'recording') { stopRecording(row); return; }
+    if ((row._recorder && row._recorder.state === 'recording') || row._wavRec) { stopRecording(row); return; }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
-      /* מעדיפים AAC ב-MP4 — מתנגן גם בספארי של אייפון; אם לא נתמך, ברירת המחדל של הדפדפן (webm ב-Chrome ישן) */
-      let recOpts;
-      try { if (MediaRecorder.isTypeSupported('audio/mp4;codecs=mp4a.40.2')) recOpts = { mimeType: 'audio/mp4;codecs=mp4a.40.2' }; } catch (e) {}
-      const rec = recOpts ? new MediaRecorder(stream, recOpts) : new MediaRecorder(stream);
+      /* סדר עדיפויות לפורמט: AAC ב-MP4 (אם הדפדפן יודע) > WAV ללא איבוד (עובד בכל דפדפן) > ברירת מחדל */
+      if (!canEncodeAacMp4() && (window.AudioContext || window.webkitAudioContext)) {
+        const actx = new (window.AudioContext || window.webkitAudioContext)();
+        const srcNode = actx.createMediaStreamSource(stream);
+        const proc = actx.createScriptProcessor(4096, 1, 1);
+        row._wavChunks = [];
+        proc.onaudioprocess = e => { row._wavChunks.push(new Float32Array(e.inputBuffer.getChannelData(0))); };
+        srcNode.connect(proc); proc.connect(actx.destination);
+        row._wavRec = { actx, proc, srcNode, stream, sampleRate: actx.sampleRate };
+        btn.textContent = 'עצירת הקלטה';
+        state.textContent = 'מקליט… לחצו שוב לעצירה';
+        player.hidden = true;
+        return;
+      }
+      const rec = canEncodeAacMp4() ? new MediaRecorder(stream, { mimeType: 'audio/mp4;codecs=mp4a.40.2' }) : new MediaRecorder(stream);
       row._recorder = rec;
       row._chunks = [];
       rec.ondataavailable = e => { if (e.data.size) row._chunks.push(e.data); };
@@ -218,6 +253,26 @@ function setupRecorder(row) {
 }
 function stopRecording(row) {
   if (row._recorder && row._recorder.state === 'recording') row._recorder.stop();
+  if (row._wavRec) stopWavRecording(row);
+}
+function stopWavRecording(row) {
+  const w = row._wavRec;
+  if (!w) return;
+  row._wavRec = null;
+  try { w.proc.disconnect(); w.srcNode.disconnect(); } catch (e) {}
+  w.stream.getTracks().forEach(t => t.stop());
+  const blob = encodeWavBuffers(row._wavChunks || [], w.sampleRate);
+  w.actx.close();
+  const btn = row.querySelector('.rec-btn');
+  const state = row.querySelector('.rec-state');
+  const player = row.querySelector('.rec-play');
+  const item = { blob, name: 'recording-' + Date.now() + '.wav', type: 'audio/wav', size: blob.size, recorded: true };
+  addItem(row, item);
+  row._previewItem = item;
+  player.src = URL.createObjectURL(blob);
+  player.hidden = false;
+  if (btn) btn.textContent = 'הקלטה כאן בדף';
+  if (state) state.textContent = 'נשמרה הקלטה (' + fmtSize(blob.size) + ') — נוספה לרשימת המצורפים; אפשר להאזין לפני השליחה';
 }
 
 function showError(msg) {
@@ -385,9 +440,6 @@ async function refreshAdminList() {
 /* תיקון אוטומטי: דוגמת webm/opus בלי עותק AAC מומרת בדפדפן של הבוחן (אם הוא יודע לקודד AAC)
    ומועלית כעותק נוסף לצד המקור. המקור לא נוגע; כישלון פשוט משאיר את המצב כמו שהוא. */
 let repairRunning = false;
-function canEncodeAacMp4() {
-  try { return !!(window.MediaRecorder && MediaRecorder.isTypeSupported('audio/mp4;codecs=mp4a.40.2')); } catch (e) { return false; }
-}
 async function repairMissingConversions() {
   if (repairRunning || !canEncodeAacMp4()) return;
   repairRunning = true;
