@@ -2,6 +2,7 @@
 /* טעמים — מערכת פניות קוראים. Backend: Supabase (anon insert-only; reviewer reads via sign-in). */
 const SUPABASE_URL = 'https://gpipsjqkntcyczoxnnwa.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_9zCWAwdh5h1euDJ67i0LuA_nSM9iW_Y';
+const APP_VERSION = '8';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { flowType: 'implicit' } });
 const STATUSES = ['חדש', 'בבדיקה', 'זומן לראיון', 'התקבל', 'נדחה'];
 const OTHER = 'אחר';
@@ -285,7 +286,7 @@ async function sendMagicLink() {
   const err = document.getElementById('gate-error');
   err.hidden = true; msg.hidden = true;
   if (!email) { err.textContent = 'מלאו דוא״ל ואז בקשו קישור.'; err.hidden = false; return; }
-  const redirectTo = window.location.origin + window.location.pathname;
+  const redirectTo = window.location.origin + window.location.pathname + '?auth=1';
   const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: redirectTo } });
   if (error) {
     const code = (error && error.code) || '';
@@ -465,6 +466,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('apply-form').addEventListener('submit', submitForm);
   document.getElementById('gate-btn').addEventListener('click', trySignIn);
   document.getElementById('magic-btn').addEventListener('click', sendMagicLink);
+  const vb = document.getElementById('app-version');
+  if (vb) vb.textContent = 'גרסה ' + APP_VERSION;
   document.getElementById('admin-pass').addEventListener('keydown', e => { if (e.key === 'Enter') trySignIn(); });
   document.getElementById('signout-btn').addEventListener('click', signOut);
   document.getElementById('export-xlsx').addEventListener('click', downloadXlsx);
