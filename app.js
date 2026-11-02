@@ -120,7 +120,7 @@ async function submitForm(ev) {
   const f = ev.target;
   document.getElementById('form-error').hidden = true;
 
-  const required = ['name', 'phone', 'area', 'yeshiva', 'nusach', 'employment', 'military', 'residency'];
+  const required = ['name', 'phone', 'area', 'yeshiva', 'nusach', 'employment', 'military'];
   for (const k of required) {
     if (!f.elements[k].value.trim()) { showError('חסר שדה חובה — בדקו שכל השדות המסומנים * מולאו.'); return; }
   }
@@ -149,8 +149,6 @@ async function submitForm(ev) {
       experience: f.elements.experience.value.trim(),
       employment: f.elements.employment.value,
       military: f.elements.military.value,
-      residency: f.elements.residency.value,
-      birthYear: f.elements.birthYear.value.trim(),
       notes: f.elements.notes.value.trim(),
       status: 'חדש',
       reviewerNotes: '',
@@ -240,7 +238,6 @@ function renderApps(filter) {
       field('אזור', a.area) + field('ישיבה', a.yeshiva) +
       field('נוסח עיקרי', a.nusach) + field('ניסיון', a.experience) +
       field('מעמד תעסוקתי', a.employment) + field('מצב צבאי', a.military) +
-      field('מעמד בישראל', a.residency) + field('שנת לידה', a.birthYear) +
       (a.notes ? field('הערות המועמד', a.notes) : '') +
       '</div>' +
       '<div class="samples-block"><b>דוגמאות קריאה (' + (a.samples || []).length + ')</b>' + samplesHtml + '</div>' +
@@ -278,11 +275,11 @@ function extOf(name) {
 function exportXlsx() {
   if (!adminApps.length) { alert('אין פניות לייצוא.'); return null; }
   const headers = ['שם', 'טלפון', 'דוא"ל', 'אזור מגורים', 'ישיבה', 'נוסח עיקרי', 'ניסיון',
-    'מעמד תעסוקתי', 'מצב צבאי', 'מעמד בישראל', 'שנת לידה', 'דוגמאות קריאה',
+    'מעמד תעסוקתי', 'מצב צבאי', 'דוגמאות קריאה',
     'הערות המועמד', 'סטטוס', 'הערות צוות', 'תאריך הגשה'];
   const rows = adminApps.map(a => [
     a.name, a.phone, a.email || '', a.area, a.yeshiva, a.nusach, a.experience || '',
-    a.employment, a.military, a.residency, a.birthYear || '',
+    a.employment, a.military,
     (a.samples || []).map(s => s.nusach + (s.desc ? ' (' + s.desc + ')' : '')).join('; '),
     a.notes || '', a.status, a.reviewerNotes || '',
     new Date(a.createdAt).toLocaleString('he-IL')
