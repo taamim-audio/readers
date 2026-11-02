@@ -11,7 +11,7 @@
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script defer src="app.js?v=7"></script>
+<script defer src="app.js?v=8"></script>
 </head>
 <body>
 
@@ -131,6 +131,7 @@
   <section id="admin-gate" class="card gate">
     <h2>כניסת צוות בלבד</h2>
     <p class="hint">הגישה מיועדת לצוות טעמים בלבד. מזינים דוא״ל וסיסמה, או מבקשים קישור כניסה לדוא״ל.</p>
+    <p class="hint" id="app-version" style="opacity:.55; font-size:.8em;"></p>
     <label>דוא״ל
       <input type="email" id="admin-email" autocomplete="email" placeholder="you@example.com">
     </label>
