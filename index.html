@@ -3,23 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>טעמים — הצטרפות לצוות הקריינות</title>
+<title>טעמים — הצטרפות לצוות בעלי הקורא</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=12">
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script defer src="app.js?v=11"></script>
+<script defer src="app.js?v=12"></script>
 </head>
 <body>
 
 <header class="site-header">
   <div class="header-inner">
     <div class="logo-badge">טעמים</div>
-    <h1>מצטרפים לצוות הקריינות</h1>
-    <p class="subtitle">יוזמה תורנית מחפשת קריינות וקריינים מצוינים</p>
+    <h1>מצטרפים לצוות בעלי הקורא</h1>
+    <p class="subtitle">יוזמה תורנית מחפשת בעלי קורא מצוינים</p>
   </div>
 </header>
 
@@ -106,9 +106,14 @@
 
     <fieldset class="samples">
       <legend>דוגמאות קריאה <span class="req">*</span></legend>
-      <p class="hint">צרפו הקלטה קצרה של קריאה בתורה — בהקלטה ישירה כאן בדף (אפשר להאזין ולהקליט מחדש לפני השליחה) או בהעלאת קובץ. קוראים ביותר מנוסח אחד? אפשר להוסיף דוגמה נוספת לכל נוסח.</p>
+      <p class="hint">מקליטים את הפסוקים שמוצגים בכל דוגמה — בהקלטה ישירה כאן בדף (אפשר להאזין ולהקליט מחדש לפני השליחה) או בהעלאת קובץ. קוראים ביותר מנוסח אחד? אפשר להוסיף דוגמה נוספת לכל נוסח.</p>
       <div id="samples-list"></div>
       <button type="button" id="add-sample" class="btn btn-soft">הוספת דוגמה נוספת ＋</button>
+      <div class="haftarah-section">
+        <h3>דוגמת הפטרה <span class="hint">(רשות)</span></h3>
+        <p class="hint">מי שמפטיר — מקליטים גם את הפסוקים שמוצגים מטה, באותה צורה: הקלטה בדף או העלאת קובץ.</p>
+        <div id="haftarah-block"></div>
+      </div>
     </fieldset>
 
     <label>הערות נוספות (לא חובה)
