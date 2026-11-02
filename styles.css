@@ -183,3 +183,17 @@ fieldset.samples legend{font-weight:800;padding:0 8px}
   font-size: 0.8em;
   margin-inline-start: 6px;
 }
+
+/* הסכמה לשימוש בהקלטות — ליד כפתור השליחה, קריא וברור */
+.consent-box {
+  background: #F9F3E7;
+  border: 1px solid #FFC727;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin: 16px 0 10px;
+  font-size: 1em;
+  line-height: 1.7;
+}
+.consent-box p { margin: 0 0 8px; }
+.consent-check { display: flex; align-items: center; gap: 8px; font-weight: bold; cursor: pointer; }
+.consent-check input { width: 18px; height: 18px; accent-color: #37474F; }
