@@ -127,3 +127,16 @@ fieldset.samples legend{font-weight:800;padding:0 8px}
 }
 .site-footer a{color:var(--purple);font-weight:800}
 .site-footer p{margin-top:6px;opacity:.75}
+
+.demo-banner{
+  background:#ffe3e3;border:3px solid var(--red);border-radius:14px;
+  padding:14px 18px;margin-bottom:20px;font-size:1rem;font-weight:600;
+}
+.demo-note{
+  background:var(--panel);border:2px dashed var(--gold-outline);border-radius:12px;
+  padding:10px 14px;font-size:.88rem;font-weight:700;margin-bottom:12px;
+}
+.demo-chip{
+  background:#ffe3e3;color:#a12626;border-radius:999px;
+  padding:3px 12px;font-size:.75rem;font-weight:800;vertical-align:middle;
+}
