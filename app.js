@@ -290,11 +290,11 @@ async function sendMagicLink() {
   if (error) {
     const code = (error && error.code) || '';
     if (error.status === 429 || code === 'over_email_send_rate_limit') {
-      err.textContent = 'יותר מדי בקשות כרגע — מתינים כמה דקות ומנסים שוב.';
+      err.textContent = 'יותר מדי בקשות כרגע — ממתינים כמה דקות ומנסים שוב.';
     } else if (error.status === 422 || code === 'signup_disabled' || code === 'otp_disabled' || code === 'user_not_found') {
-      err.textContent = 'לא הצלחנו לשלוח קישור לכתובת הזו. אם אתם רשומים כבוחנים — פנו לצוות הטעמים ונטפל בזה.';
+      err.textContent = 'לא הצלחנו לשלוח קישור לכתובת הזו. אם אתם רשומים כבוחנים — פנו לצוות טעמים ונטפל בזה.';
     } else {
-      err.textContent = 'שליחת הקישור נכשלה כרגע — נסו שוב בעוד כמה דקות. אם זה חוזר, פנו לצוות הטעמים.';
+      err.textContent = 'שליחת הקישור נכשלה כרגע — נסו שוב בעוד כמה דקות. אם זה חוזר, פנו לצוות טעמים.';
     }
     err.hidden = false; return;
   }
