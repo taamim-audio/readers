@@ -285,7 +285,8 @@ async function sendMagicLink() {
   const err = document.getElementById('gate-error');
   err.hidden = true; msg.hidden = true;
   if (!email) { err.textContent = 'מלאו דוא״ל ואז בקשו קישור.'; err.hidden = false; return; }
-  const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+  const redirectTo = window.location.origin + window.location.pathname + '#admin';
+  const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: redirectTo } });
   if (error) { err.textContent = 'שליחת הקישור נכשלה — בדקו את הדוא״ל.'; err.hidden = false; return; }
   msg.textContent = 'נשלח קישור כניסה לדוא״ל. לוחצים עליו — וחוזרים לכאן מחוברים.';
   msg.hidden = false;
@@ -459,6 +460,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('export-xlsx').addEventListener('click', downloadXlsx);
   document.getElementById('export-zip').addEventListener('click', downloadZip);
   document.getElementById('search').addEventListener('input', e => renderApps(e.target.value.trim()));
-  sb.auth.onAuthStateChange(() => { if (location.hash === '#admin') renderAdmin(); });
+  sb.auth.onAuthStateChange((event) => {
+    if (event === 'SIGNED_IN' && location.hash !== '#admin') { location.hash = '#admin'; return; }
+    if (location.hash === '#admin') renderAdmin();
+  });
   route();
 });
