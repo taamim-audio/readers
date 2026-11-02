@@ -2,7 +2,7 @@
 /* טעמים — מערכת פניות קוראים. Backend: Supabase (anon insert-only; reviewer reads via sign-in). */
 const SUPABASE_URL = 'https://gpipsjqkntcyczoxnnwa.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_9zCWAwdh5h1euDJ67i0LuA_nSM9iW_Y';
-const APP_VERSION = '17';
+const APP_VERSION = '18';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { flowType: 'implicit' } });
 const STATUSES = ['חדש', 'בבדיקה', 'זומן לראיון', 'התקבל', 'נדחה'];
 const OTHER = 'אחר';
@@ -369,15 +369,72 @@ async function refreshAdminList() {
       s.signedUrl = r.data && r.data.signedUrl ? r.data.signedUrl : null;
       /* להקלטות webm/opus (הקלטה בדף מ-Chrome) מחפשים עותק AAC שהומר — Safari באייפון לא מנגן webm */
       s.convSignedUrl = null;
+      s.needsRepair = null;
       if (/webm|ogg|opus/i.test(s.content_type || '')) {
         const convPath = s.path.replace(/\.[a-z0-9]+$/i, '.conv.m4a');
         const rc = await sb.storage.from('samples').createSignedUrl(convPath, 3600);
         s.convSignedUrl = rc.data && rc.data.signedUrl ? rc.data.signedUrl : null;
+        if (!s.convSignedUrl) s.needsRepair = convPath;
       }
     }
   }
   renderStats();
   renderApps(document.getElementById('search').value.trim());
+  repairMissingConversions(); /* רקע — לא חוסם את התצוגה */
+}
+/* תיקון אוטומטי: דוגמת webm/opus בלי עותק AAC מומרת בדפדפן של הבוחן (אם הוא יודע לקודד AAC)
+   ומועלית כעותק נוסף לצד המקור. המקור לא נוגע; כישלון פשוט משאיר את המצב כמו שהוא. */
+let repairRunning = false;
+function canEncodeAacMp4() {
+  try { return !!(window.MediaRecorder && MediaRecorder.isTypeSupported('audio/mp4;codecs=mp4a.40.2')); } catch (e) { return false; }
+}
+async function repairMissingConversions() {
+  if (repairRunning || !canEncodeAacMp4()) return;
+  repairRunning = true;
+  let changed = false;
+  try {
+    for (const a of adminApps) {
+      for (const s of (a.samples || [])) {
+        if (!s.needsRepair || !s.signedUrl) continue;
+        try {
+          const buf = await (await fetch(s.signedUrl)).arrayBuffer();
+          const actx = new (window.AudioContext || window.webkitAudioContext)();
+          const audio = await actx.decodeAudioData(buf);
+          const off = new OfflineAudioContext(audio.numberOfChannels, audio.length, audio.sampleRate);
+          const srcNode = off.createBufferSource();
+          srcNode.buffer = audio;
+          const dest = off.createMediaStreamDestination();
+          srcNode.connect(dest);
+          const rec = new MediaRecorder(dest.stream, { mimeType: 'audio/mp4;codecs=mp4a.40.2' });
+          const chunks = [];
+          rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+          const stopped = new Promise(res => { rec.onstop = res; });
+          rec.start();
+          srcNode.start();
+          await off.startRendering();
+          await new Promise(r => setTimeout(r, 250));
+          rec.stop();
+          await stopped;
+          await actx.close();
+          const blob = new Blob(chunks, { type: 'audio/mp4' });
+          if (blob.size < 1000) continue;
+          /* בדיקת שלמות לפני העלאה: משך ההמרה חייב להתאים למקור */
+          const verify = new (window.AudioContext || window.webkitAudioContext)();
+          const outAudio = await verify.decodeAudioData(await blob.arrayBuffer());
+          await verify.close();
+          if (Math.abs(outAudio.duration - audio.duration) > 1 || outAudio.duration < 2) continue;
+          const up = await sb.storage.from('samples').upload(s.needsRepair, blob, { contentType: 'audio/mp4' });
+          if (up.error) continue;
+          const rc = await sb.storage.from('samples').createSignedUrl(s.needsRepair, 3600);
+          s.convSignedUrl = rc.data && rc.data.signedUrl ? rc.data.signedUrl : null;
+          if (s.convSignedUrl) { s.needsRepair = null; changed = true; }
+        } catch (e) { /* נשאר כמו שהוא */ }
+      }
+    }
+  } finally {
+    repairRunning = false;
+  }
+  if (changed) renderApps(document.getElementById('search').value.trim());
 }
 function renderStats() {
   const byStatus = {};
