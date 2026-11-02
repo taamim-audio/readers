@@ -2,7 +2,7 @@
 /* טעמים — מערכת פניות קוראים. Backend: Supabase (anon insert-only; reviewer reads via sign-in). */
 const SUPABASE_URL = 'https://gpipsjqkntcyczoxnnwa.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_9zCWAwdh5h1euDJ67i0LuA_nSM9iW_Y';
-const APP_VERSION = '13';
+const APP_VERSION = '14';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { flowType: 'implicit' } });
 const STATUSES = ['חדש', 'בבדיקה', 'זומן לראיון', 'התקבל', 'נדחה'];
 const OTHER = 'אחר';
@@ -227,6 +227,7 @@ async function submitForm(ev) {
   for (const k of required) {
     if (!f.elements[k].value.trim()) { showError('חסר שדה חובה — בדקו שכל השדות המסומנים * מולאו.'); return; }
   }
+  if (!document.getElementById('consent-check').checked) { showError('כדי לשלוח צריך לאשר את ההסכמה לשימוש בהקלטות.'); return; }
   for (const sel of f.querySelectorAll('select')) {
     if (sel.value === OTHER) {
       const t = (sel.closest('label') || sel.parentElement).querySelector('.other-text');
