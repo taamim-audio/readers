@@ -21,6 +21,7 @@ body{
 }
 .header-inner{max-width:720px;margin:0 auto}
 .logo-badge{font-size:44px;line-height:1;margin-bottom:10px}
+.logo-badge-img{height:56px;width:auto;margin-bottom:10px}
 h1{font-weight:800;font-size:1.7rem;margin-bottom:8px}
 .subtitle{font-weight:600;font-size:1rem;opacity:.85}
 .container{max-width:720px;margin:0 auto;padding:20px 16px;width:100%;flex:1}
