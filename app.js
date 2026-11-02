@@ -2,7 +2,7 @@
 /* טעמים — מערכת פניות קוראים. Backend: Supabase (anon insert-only; reviewer reads via sign-in). */
 const SUPABASE_URL = 'https://gpipsjqkntcyczoxnnwa.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_9zCWAwdh5h1euDJ67i0LuA_nSM9iW_Y';
-const APP_VERSION = '12';
+const APP_VERSION = '13';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { flowType: 'implicit' } });
 const STATUSES = ['חדש', 'בבדיקה', 'זומן לראיון', 'התקבל', 'נדחה'];
 const OTHER = 'אחר';
@@ -109,7 +109,8 @@ function addSampleRow(kind) {
     '<select class="sample-nusach" required>' +
     '<option value="">בחרו…</option><option>אשכנזי</option><option>ספרדי ירושלמי</option><option>ספרדי מרוקאי</option><option>תימני</option><option>אחר</option>' +
     '</select></label>';
-  wrap.querySelector('.remove-sample').addEventListener('click', () => {
+  const removeBtn = wrap.querySelector('.remove-sample');
+  if (removeBtn) removeBtn.addEventListener('click', () => {
     stopRecording(wrap);
     wrap.remove();
     renumberSamples();
