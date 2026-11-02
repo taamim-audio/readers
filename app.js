@@ -2,7 +2,7 @@
 /* טעמים — מערכת פניות קוראים. Backend: Supabase (anon insert-only; reviewer reads via sign-in). */
 const SUPABASE_URL = 'https://gpipsjqkntcyczoxnnwa.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_9zCWAwdh5h1euDJ67i0LuA_nSM9iW_Y';
-const APP_VERSION = '14';
+const APP_VERSION = '17';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { flowType: 'implicit' } });
 const STATUSES = ['חדש', 'בבדיקה', 'זומן לראיון', 'התקבל', 'נדחה'];
 const OTHER = 'אחר';
@@ -188,7 +188,10 @@ function setupRecorder(row) {
     if (row._recorder && row._recorder.state === 'recording') { stopRecording(row); return; }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
-      const rec = new MediaRecorder(stream);
+      /* מעדיפים AAC ב-MP4 — מתנגן גם בספארי של אייפון; אם לא נתמך, ברירת המחדל של הדפדפן (webm ב-Chrome ישן) */
+      let recOpts;
+      try { if (MediaRecorder.isTypeSupported('audio/mp4;codecs=mp4a.40.2')) recOpts = { mimeType: 'audio/mp4;codecs=mp4a.40.2' }; } catch (e) {}
+      const rec = recOpts ? new MediaRecorder(stream, recOpts) : new MediaRecorder(stream);
       row._recorder = rec;
       row._chunks = [];
       rec.ondataavailable = e => { if (e.data.size) row._chunks.push(e.data); };
@@ -364,6 +367,13 @@ async function refreshAdminList() {
     for (const s of (a.samples || [])) {
       const r = await sb.storage.from('samples').createSignedUrl(s.path, 3600);
       s.signedUrl = r.data && r.data.signedUrl ? r.data.signedUrl : null;
+      /* להקלטות webm/opus (הקלטה בדף מ-Chrome) מחפשים עותק AAC שהומר — Safari באייפון לא מנגן webm */
+      s.convSignedUrl = null;
+      if (/webm|ogg|opus/i.test(s.content_type || '')) {
+        const convPath = s.path.replace(/\.[a-z0-9]+$/i, '.conv.m4a');
+        const rc = await sb.storage.from('samples').createSignedUrl(convPath, 3600);
+        s.convSignedUrl = rc.data && rc.data.signedUrl ? rc.data.signedUrl : null;
+      }
     }
   }
   renderStats();
@@ -402,7 +412,12 @@ function renderApps(filter) {
         (s.description ? ' — ' + esc(s.description) : '') +
         ' <span style="opacity:.6">(' + esc(s.filename) + ', ' + fmtSize(s.size_bytes) + ')</span></div>' +
         (s.signedUrl
-          ? '<audio controls preload="metadata" src="' + esc(s.signedUrl) + '"></audio>' +
+          ? (s.convSignedUrl
+              ? '<audio controls preload="metadata">' +
+                '<source src="' + esc(s.convSignedUrl) + '" type="audio/mp4">' +
+                '<source src="' + esc(s.signedUrl) + '" type="' + esc(s.content_type || 'audio/webm') + '">' +
+                '</audio>'
+              : '<audio controls preload="metadata" src="' + esc(s.signedUrl) + '"></audio>') +
             '<a class="dl-link" href="' + esc(s.signedUrl) + '" download="' + esc(dlName) + '">הורדת ההקלטה</a>'
           : '<div class="error">לא ניתן לגשת להקלטה כרגע.</div>') +
         '</div>';
