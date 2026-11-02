@@ -7,11 +7,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=13">
+<link rel="stylesheet" href="styles.css?v=14">
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script defer src="app.js?v=13"></script>
+<script defer src="app.js?v=14"></script>
 </head>
 <body>
 
@@ -121,6 +121,10 @@
     </label>
 
     <div id="form-error" class="error" hidden></div>
+    <div class="consent-box">
+      <p>ההקלטות שתצרפו יישמרו אצל צוות טעמים וישמשו רק להאזנה ולהערכת התאמה לצוות. ההקלטות לא יפורסמו ולא ישמשו לשום מטרה אחרת.</p>
+      <label class="consent-check"><input type="checkbox" id="consent-check"> קראתי ואני מסכים/ה</label>
+    </div>
     <button type="submit" class="btn btn-primary" id="submit-btn">שליחת מועמדות</button>
   </form>
 
