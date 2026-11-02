@@ -39,7 +39,12 @@ function extFromMime(mime) {
   if (/wav/.test(mime)) return 'wav';
   return 'webm';
 }
-function safeFileName(n) { return String(n || 'audio').replace(/[\\/:*?"<>|#%&{}$!'@+`=~]/g, '_').slice(0, 80); }
+function safeFileName(n) {
+  /* מפתח האחסון חייב ASCII — שמות קבצים בעברית נשמרים במלואם בעמודת filename בבסיס הנתונים */
+  let s = String(n || 'audio').replace(/[^\x20-\x7E]/g, '_').replace(/[\\/:*?"<>|#%&{}$!'@+`=~\s]/g, '_');
+  s = s.replace(/_+/g, '_').replace(/^[_.]+|[_.]+$/g, '').slice(0, 80);
+  return s || 'audio';
+}
 
 /* ---------- "אחר" מחייב פירוש ---------- */
 /* לכל select שיש בו אופציית "אחר" מוסיפים שדה טקסט חובה שמופיע בבחירת אחר */
@@ -120,6 +125,7 @@ function addSampleRow(kind) {
     [...ev.target.files].forEach(f => addItem(wrap, { blob: f, name: f.name, type: f.type || 'audio/webm', size: f.size }));
     ev.target.value = '';
   });
+  wrap.querySelector('.sample-nusach').required = isTorah;
   wireOtherField(wrap.querySelector('.sample-nusach'));
   setupRecorder(wrap);
   document.getElementById(isTorah ? 'samples-list' : 'haftarah-block').appendChild(wrap);
@@ -181,7 +187,7 @@ function setupRecorder(row) {
   btn.addEventListener('click', async () => {
     if (row._recorder && row._recorder.state === 'recording') { stopRecording(row); return; }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
       const rec = new MediaRecorder(stream);
       row._recorder = rec;
       row._chunks = [];
@@ -259,7 +265,7 @@ async function submitForm(ev) {
       const s = samples[i];
       const path = publicId + '/' + (i + 1) + '-' + safeFileName(s.name);
       const up = await sb.storage.from('samples').upload(path, s.blob, { contentType: s.type });
-      if (up.error) throw new Error('upload: ' + up.error.message);
+      if (up.error) throw new Error('upload (' + s.name + '): ' + up.error.message);
       uploaded.push({ path, s });
     }
     /* 2. רשומת המועמדות */
