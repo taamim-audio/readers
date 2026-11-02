@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script defer src="app.js"></script>
@@ -16,24 +17,20 @@
 
 <header class="site-header">
   <div class="header-inner">
-    <div class="logo-badge">🎙️📖</div>
-    <h1>מצטרפים לצוות הקריינות של טעמים</h1>
-    <p class="subtitle">אפליקציית טעמים מלמדת קריאה בתורה עם טעמי המקרא — ואנחנו מקליטים את כל התורה מחדש</p>
+    <div class="logo-badge">טעמים</div>
+    <h1>מצטרפים לצוות הקריינות</h1>
+    <p class="subtitle">יוזמה תורנית מחפשת קריינות וקריינים מצוינים</p>
   </div>
 </header>
 
 <!-- ===== תצוגת מועמד ===== -->
 <main id="view-apply" class="container">
 
-  <div class="demo-banner">
-    ⚠️ <strong>גרסת הדגמה בלבד.</strong> אין למלא פרטים אמיתיים — הנתונים נשמרים רק בדפדפן שלך ולא נשלחים לצוות טעמים.
-  </div>
-
   <section class="card intro">
     <h2>מה מחפשים?</h2>
-    <p>קוראים מצוינים להקלטת התורה כולה, בנוסחים שונים. ממלאים את הטופס, מצרפים דוגמת קריאה קצרה (אפשר כמה דוגמאות, גם בנוסחים שונים) — ואם מתאים, נזמין לראיון מקוון.</p>
+    <p>קוראים וקוראות מצוינים להקלטת קריאה בתורה, בנוסחים שונים. ממלאים את הטופס, מצרפים דוגמת קריאה קצרה (אפשר כמה דוגמאות, גם בנוסחים שונים) — ואם מתאים, נזמין לראיון מקוון.</p>
     <div class="tips">
-      <h3>🎧 איך שההקלטה תישמע?</h3>
+      <h3>איך שההקלטה תישמע?</h3>
       <ul>
         <li>קריאה <strong>איטית וברורה</strong> — אבל לא איטית מדי</li>
         <li>נעימה לאוזן: לא גבוה מדי, לא נמוך מדי</li>
@@ -108,9 +105,9 @@
 
     <fieldset class="samples">
       <legend>דוגמאות קריאה <span class="req">*</span></legend>
-      <p class="hint">צרפו הקלטה קצרה של קריאה בתורה. קוראים ביותר מנוסח אחד? אפשר להוסיף דוגמה נוספת לכל נוסח.</p>
+      <p class="hint">צרפו הקלטה קצרה של קריאה בתורה — בהקלטה ישירה כאן בדף (אפשר להאזין ולהקליט מחדש לפני השליחה) או בהעלאת קובץ. קוראים ביותר מנוסח אחד? אפשר להוסיף דוגמה נוספת לכל נוסח.</p>
       <div id="samples-list"></div>
-      <button type="button" id="add-sample" class="btn btn-soft">＋ הוספת דוגמה נוספת</button>
+      <button type="button" id="add-sample" class="btn btn-soft">הוספת דוגמה נוספת ＋</button>
     </fieldset>
 
     <label>הערות נוספות (לא חובה)
@@ -118,15 +115,13 @@
     </label>
 
     <div id="form-error" class="error" hidden></div>
-    <p class="demo-note">⚠️ הדגמה בלבד: הלחיצה שומרת את הטופס בדפדפן שלך בלבד — שום מידע לא נשלח לצוות טעמים.</p>
-    <button type="submit" class="btn btn-primary" id="submit-btn">שליחת מועמדות 🚀</button>
+    <button type="submit" class="btn btn-primary" id="submit-btn">שליחת מועמדות</button>
   </form>
 
   <section id="apply-success" class="card success" hidden>
-    <div class="check">✅</div>
+    <div class="check">✓</div>
     <h2>המועמדות נשלחה!</h2>
-    <p>הטופס נשמר בדפדפן זה (הדגמה בלבד — לא נשלח לשום מקום).</p>
-    <p>בגרסה המלאה: אנחנו עוברים על כל הטפסים, ואם מתאים — נחזור אליך להזמנה לראיון מקוון.</p>
+    <p>תודה! אנחנו עוברים על כל הטפסים, ואם מתאים — נחזור אליך להזמנה לראיון מקוון.</p>
   </section>
 </main>
 
@@ -134,24 +129,31 @@
 <main id="view-admin" class="container" hidden>
 
   <section id="admin-gate" class="card gate">
-    <h2>מסך ניהול — הדגמה</h2>
-    <p class="hint">בגרסת ההדגמה הנתונים נשמרים בדפדפן זה בלבד, והקוד הוא חלק מההדגמה — אינו הגנה אמיתית. בגרסה המלאה תהיה כניסה מאובטחת לצוות.</p>
-    <label>קוד הדגמה
-      <input type="password" id="admin-code" inputmode="text" autocomplete="off">
+    <h2>כניסת צוות בלבד</h2>
+    <p class="hint">הגישה מיועדת לצוות הטעמים בלבד. מזינים דוא״ל וסיסמה, או מבקשים קישור כניסה לדוא״ל.</p>
+    <label>דוא״ל
+      <input type="email" id="admin-email" autocomplete="email" placeholder="you@example.com">
     </label>
-    <div id="gate-error" class="error" hidden>קוד שגוי, נסו שוב.</div>
-    <button class="btn btn-primary" id="gate-btn">כניסה</button>
+    <label>סיסמה
+      <input type="password" id="admin-pass" autocomplete="current-password">
+    </label>
+    <div id="gate-error" class="error" hidden></div>
+    <div id="gate-msg" class="hint" hidden></div>
+    <div class="gate-actions">
+      <button class="btn btn-primary" id="gate-btn">כניסה</button>
+      <button class="btn btn-soft" id="magic-btn">שליחת קישור כניסה לדוא״ל</button>
+    </div>
   </section>
 
   <section id="admin-panel" hidden>
     <div class="card admin-head">
-      <h2>ניהול פניות <span class="demo-chip">הדגמה — נתונים מקומיים בלבד</span></h2>
+      <h2>ניהול פניות</h2>
       <div class="stats" id="stats"></div>
       <div class="admin-actions">
-        <button class="btn btn-green" id="export-xlsx">📊 ייצוא לאקסל</button>
-        <button class="btn btn-soft" id="export-zip">📦 ייצוא מלא (אקסל + הקלטות)</button>
+        <button class="btn btn-green" id="export-xlsx">ייצוא לאקסל</button>
+        <button class="btn btn-soft" id="export-zip">ייצוא מלא (אקסל + הקלטות)</button>
         <input type="search" id="search" placeholder="חיפוש לפי שם, טלפון, ישיבה, נוסח…">
-        <button class="btn btn-danger" id="clear-all">מחיקת כל הפניות</button>
+        <button class="btn btn-soft" id="signout-btn">יציאה</button>
       </div>
     </div>
     <div id="apps-list"></div>
