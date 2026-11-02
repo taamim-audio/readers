@@ -43,7 +43,7 @@ function wireOtherField(select) {
   input.className = 'other-text';
   input.placeholder = 'פרטו…';
   input.hidden = true;
-  select.insertAdjacentElement('afterend', input);
+  (select.closest('label') || select.parentElement).appendChild(input);
   const sync = () => {
     const isOther = select.value === OTHER;
     input.hidden = !isOther;
@@ -56,7 +56,7 @@ function wireOtherField(select) {
 /* מחזיר את הערך הסופי של select: אם נבחר אחר — "אחר: <פירוש>" */
 function selectFinalValue(select) {
   if (select.value !== OTHER) return select.value;
-  const input = select.parentElement.querySelector('.other-text');
+  const input = (select.closest('label') || select.parentElement).querySelector('.other-text');
   return OTHER + ': ' + (input ? input.value.trim() : '');
 }
 
@@ -184,7 +184,7 @@ async function submitForm(ev) {
   }
   for (const sel of f.querySelectorAll('select')) {
     if (sel.value === OTHER) {
-      const t = sel.parentElement.querySelector('.other-text');
+      const t = (sel.closest('label') || sel.parentElement).querySelector('.other-text');
       if (!t || !t.value.trim()) { showError('בכל בחירת "אחר" צריך לפרט בכתב — השלימו את השדה החסר.'); return; }
     }
   }
