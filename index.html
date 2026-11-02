@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>טעמים — הצטרפות לצוות הקריינות</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script defer src="app.js"></script>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner">
+    <div class="logo-badge">🎙️📖</div>
+    <h1>מצטרפים לצוות הקריינות של טעמים</h1>
+    <p class="subtitle">אפליקציית טעמים מלמדת קריאה בתורה עם טעמי המקרא — ואנחנו מקליטים את כל התורה מחדש</p>
+  </div>
+</header>
+
+<!-- ===== תצוגת מועמד ===== -->
+<main id="view-apply" class="container">
+
+  <section class="card intro">
+    <h2>מה מחפשים?</h2>
+    <p>קוראים מצוינים להקלטת התורה כולה, בנוסחים שונים. ממלאים את הטופס, מצרפים דוגמת קריאה קצרה (אפשר כמה דוגמאות, גם בנוסחים שונים) — ואם מתאים, נזמין לראיון מקוון.</p>
+    <div class="tips">
+      <h3>🎧 איך שההקלטה תישמע?</h3>
+      <ul>
+        <li>קריאה <strong>איטית וברורה</strong> — אבל לא איטית מדי</li>
+        <li>נעימה לאוזן: לא גבוה מדי, לא נמוך מדי</li>
+        <li>לא צעקנית מדי ולא לוחשת מדי</li>
+        <li>מומלץ להקליט במקום שקט, בלי רעשי רקע</li>
+      </ul>
+    </div>
+  </section>
+
+  <form id="apply-form" class="card" novalidate>
+    <h2>טופס מועמדות</h2>
+
+    <label>שם מלא <span class="req">*</span>
+      <input type="text" name="name" required autocomplete="name">
+    </label>
+
+    <label>מספר טלפון <span class="req">*</span>
+      <input type="tel" name="phone" required autocomplete="tel" inputmode="tel" placeholder="05X-XXXXXXX">
+    </label>
+
+    <label>דוא״ל (לא חובה)
+      <input type="email" name="email" autocomplete="email" placeholder="you@example.com">
+    </label>
+
+    <label>אזור מגורים בארץ (עיר / יישוב) <span class="req">*</span>
+      <input type="text" name="area" required placeholder="למשל: ירושלים">
+    </label>
+
+    <label>ישיבה / מקום לימוד <span class="req">*</span>
+      <input type="text" name="yeshiva" required>
+    </label>
+
+    <label>נוסח הקריאה העיקרי שלך <span class="req">*</span>
+      <select name="nusach" required>
+        <option value="">בחרו…</option>
+        <option>אשכנז</option>
+        <option>ספרד</option>
+        <option>תימן</option>
+        <option>אחר</option>
+      </select>
+    </label>
+
+    <label>ניסיון בקריאה בתורה (לא חובה)
+      <input type="text" name="experience" placeholder="כמה שנים, איפה קראת…">
+    </label>
+
+    <div class="grid-2">
+      <label>מעמד תעסוקתי <span class="req">*</span>
+        <select name="employment" required>
+          <option value="">בחרו…</option>
+          <option>אברך / סטודנט בלבד</option>
+          <option>שכיר במשרה חלקית</option>
+          <option>שכיר במשרה מלאה</option>
+          <option>עצמאי (פרילנסר)</option>
+          <option>אחר</option>
+        </select>
+      </label>
+
+      <label>מצב צבאי <span class="req">*</span>
+        <select name="military" required>
+          <option value="">בחרו…</option>
+          <option>טרם גיוס</option>
+          <option>שירות סדיר</option>
+          <option>מילואים (פעיל)</option>
+          <option>שירות לאומי-אזרחי</option>
+          <option>פטור משירות</option>
+          <option>לא רלוונטי</option>
+          <option>אחר</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="grid-2">
+      <label>מעמד בישראל <span class="req">*</span>
+        <select name="residency" required>
+          <option value="">בחרו…</option>
+          <option>אזרחות ישראלית</option>
+          <option>תושבות קבע</option>
+          <option>אחר</option>
+        </select>
+      </label>
+
+      <label>שנת לידה (לא חובה)
+        <input type="number" name="birthYear" min="1930" max="2015" placeholder="למשל: 2002">
+      </label>
+    </div>
+
+    <fieldset class="samples">
+      <legend>דוגמאות קריאה <span class="req">*</span></legend>
+      <p class="hint">צרפו הקלטה קצרה של קריאה בתורה. קוראים ביותר מנוסח אחד? אפשר להוסיף דוגמה נוספת לכל נוסח.</p>
+      <div id="samples-list"></div>
+      <button type="button" id="add-sample" class="btn btn-soft">＋ הוספת דוגמה נוספת</button>
+    </fieldset>
+
+    <label>הערות נוספות (לא חובה)
+      <textarea name="notes" rows="3" placeholder="משהו שכדאי שנדע…"></textarea>
+    </label>
+
+    <div id="form-error" class="error" hidden></div>
+    <button type="submit" class="btn btn-primary" id="submit-btn">שליחת מועמדות 🚀</button>
+  </form>
+
+  <section id="apply-success" class="card success" hidden>
+    <div class="check">✅</div>
+    <h2>המועמדות נשלחה!</h2>
+    <p>תודה רבה. אנחנו עוברים על כל הטפסים, ואם מתאים — נחזור אליך להזמנה לראיון מקוון.</p>
+  </section>
+</main>
+
+<!-- ===== תצוגת ניהול (צוות) ===== -->
+<main id="view-admin" class="container" hidden>
+
+  <section id="admin-gate" class="card gate">
+    <h2>🔒 כניסת צוות</h2>
+    <p class="hint">האזור הזה מיועד לצוות טעמים בלבד.</p>
+    <label>קוד גישה
+      <input type="password" id="admin-code" inputmode="text" autocomplete="off">
+    </label>
+    <div id="gate-error" class="error" hidden>קוד שגוי, נסו שוב.</div>
+    <button class="btn btn-primary" id="gate-btn">כניסה</button>
+  </section>
+
+  <section id="admin-panel" hidden>
+    <div class="card admin-head">
+      <h2>ניהול פניות</h2>
+      <div class="stats" id="stats"></div>
+      <div class="admin-actions">
+        <button class="btn btn-green" id="export-xlsx">📊 ייצוא לאקסל</button>
+        <button class="btn btn-soft" id="export-zip">📦 ייצוא מלא (אקסל + הקלטות)</button>
+        <input type="search" id="search" placeholder="חיפוש לפי שם, טלפון, ישיבה, נוסח…">
+        <button class="btn btn-danger" id="clear-all">מחיקת כל הפניות</button>
+      </div>
+    </div>
+    <div id="apps-list"></div>
+    <p id="empty-state" class="hint" hidden>אין פניות עדיין.</p>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <a href="#admin" id="team-link">כניסת צוות</a>
+  <p>© צוות טעמים — כל הזכויות שמורות. אין לעשות שימוש ללא אישור בכתב.</p>
+</footer>
+
+</body>
+</html>
