@@ -289,12 +289,12 @@ async function sendMagicLink() {
   const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: redirectTo } });
   if (error) {
     const code = (error && error.code) || '';
-    if (error.status === 422 || code === 'signup_disabled' || code === 'user_not_found') {
-      err.textContent = 'הכתובת הזו לא מופיעה ברשימת הבוחנים. אם נראית לכם טעות — פנו לצוות הטעמים.';
-    } else if (error.status === 429 || code === 'over_email_send_rate_limit') {
-      err.textContent = 'כבר נשלח קישור לא מזמן — מתינים דקה ומנסים שוב.';
+    if (error.status === 429 || code === 'over_email_send_rate_limit') {
+      err.textContent = 'יותר מדי בקשות כרגע — מתינים כמה דקות ומנסים שוב.';
+    } else if (error.status === 422 || code === 'signup_disabled' || code === 'otp_disabled' || code === 'user_not_found') {
+      err.textContent = 'לא הצלחנו לשלוח קישור לכתובת הזו. אם אתם רשומים כבוחנים — פנו לצוות הטעמים ונטפל בזה.';
     } else {
-      err.textContent = 'שליחת הקישור נכשלה כרגע — נסו שוב בעוד דקה.';
+      err.textContent = 'שליחת הקישור נכשלה כרגע — נסו שוב בעוד כמה דקות. אם זה חוזר, פנו לצוות הטעמים.';
     }
     err.hidden = false; return;
   }
