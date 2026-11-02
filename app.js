@@ -2,7 +2,7 @@
 /* טעמים — מערכת פניות קוראים. Backend: Supabase (anon insert-only; reviewer reads via sign-in). */
 const SUPABASE_URL = 'https://gpipsjqkntcyczoxnnwa.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_9zCWAwdh5h1euDJ67i0LuA_nSM9iW_Y';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { flowType: 'implicit' } });
 const STATUSES = ['חדש', 'בבדיקה', 'זומן לראיון', 'התקבל', 'נדחה'];
 const OTHER = 'אחר';
 
@@ -62,7 +62,7 @@ function selectFinalValue(select) {
 
 /* ---------- ניתוב ---------- */
 function route() {
-  const admin = location.hash === '#admin';
+  const admin = location.hash.startsWith('#admin');
   document.getElementById('view-apply').hidden = admin;
   document.getElementById('view-admin').hidden = !admin;
   if (admin) renderAdmin();
@@ -285,7 +285,7 @@ async function sendMagicLink() {
   const err = document.getElementById('gate-error');
   err.hidden = true; msg.hidden = true;
   if (!email) { err.textContent = 'מלאו דוא״ל ואז בקשו קישור.'; err.hidden = false; return; }
-  const redirectTo = window.location.origin + window.location.pathname + '#admin';
+  const redirectTo = window.location.origin + window.location.pathname;
   const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: redirectTo } });
   if (error) {
     const code = (error && error.code) || '';
@@ -471,8 +471,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('export-zip').addEventListener('click', downloadZip);
   document.getElementById('search').addEventListener('input', e => renderApps(e.target.value.trim()));
   sb.auth.onAuthStateChange((event) => {
-    if (event === 'SIGNED_IN' && location.hash !== '#admin') { location.hash = '#admin'; return; }
-    if (location.hash === '#admin') renderAdmin();
+    if (event === 'SIGNED_IN' && !location.hash.startsWith('#admin')) { location.hash = '#admin'; return; }
+    if (location.hash.startsWith('#admin')) renderAdmin();
   });
   route();
 });
