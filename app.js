@@ -2,7 +2,7 @@
 /* טעמים — מערכת פניות קוראים. Backend: Supabase (anon insert-only; reviewer reads via sign-in). */
 const SUPABASE_URL = 'https://gpipsjqkntcyczoxnnwa.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_9zCWAwdh5h1euDJ67i0LuA_nSM9iW_Y';
-const APP_VERSION = '9';
+const APP_VERSION = '10';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { flowType: 'implicit' } });
 const STATUSES = ['חדש', 'בבדיקה', 'זומן לראיון', 'התקבל', 'נדחה'];
 const OTHER = 'אחר';
@@ -82,14 +82,14 @@ function addSampleRow() {
   wrap.innerHTML =
     '<div class="row-head"><span>דוגמה ' + sampleCount + '</span>' +
     '<button type="button" class="remove-sample" title="הסרה">✕</button></div>' +
-    '<label>העלאת קובץ אודיו' +
-    '<input type="file" accept="audio/*" class="sample-file"></label>' +
+    '<label>העלאת קבצי אודיו <span class="hint">(אפשר כמה קבצים, וגם הקלטה בדף — כל מה שמצורף נשלח)</span>' +
+    '<input type="file" accept="audio/*" class="sample-file" multiple></label>' +
     '<div class="rec-block">' +
     '<button type="button" class="btn btn-soft rec-btn">הקלטה כאן בדף</button>' +
     '<span class="rec-state"></span>' +
     '<audio class="rec-play" controls hidden></audio>' +
-    '<button type="button" class="btn btn-soft rec-redo" hidden>הקלטה מחדש</button>' +
     '</div>' +
+    '<ul class="attached-list"></ul>' +
     '<p class="hint rec-unsupported" hidden>הדפדפן לא תומך בהקלטה ישירה — אפשר להעלות קובץ אודיו קיים.</p>' +
     '<div class="grid-2">' +
     '<label>נוסח הדוגמה <span class="req">*</span>' +
@@ -104,6 +104,11 @@ function addSampleRow() {
     wrap.remove();
     renumberSamples();
   });
+  wrap._items = [];
+  wrap.querySelector('.sample-file').addEventListener('change', ev => {
+    [...ev.target.files].forEach(f => addItem(wrap, { blob: f, name: f.name, type: f.type || 'audio/webm', size: f.size }));
+    ev.target.value = '';
+  });
   wireOtherField(wrap.querySelector('.sample-nusach'));
   setupRecorder(wrap);
   document.getElementById('samples-list').appendChild(wrap);
@@ -113,12 +118,48 @@ function renumberSamples() {
     .forEach((el, i) => { el.textContent = 'דוגמה ' + (i + 1); });
 }
 
+function addItem(row, item) {
+  row._items.push(item);
+  renderAttached(row);
+}
+function renderAttached(row) {
+  const ul = row.querySelector('.attached-list');
+  ul.innerHTML = '';
+  if (!row._items.length) return;
+  const head = document.createElement('li');
+  head.className = 'attached-head';
+  head.textContent = 'מצורפים לשליחה: ' + row._items.length;
+  ul.appendChild(head);
+  row._items.forEach((it, i) => {
+    const li = document.createElement('li');
+    const span = document.createElement('span');
+    span.textContent = it.name + ' (' + fmtSize(it.size) + ')';
+    const rm = document.createElement('button');
+    rm.type = 'button';
+    rm.className = 'attach-remove';
+    rm.title = 'הסרה';
+    rm.textContent = '✕';
+    rm.addEventListener('click', () => {
+      if (row._previewItem === it) {
+        const player = row.querySelector('.rec-play');
+        player.hidden = true;
+        player.removeAttribute('src');
+        row._previewItem = null;
+      }
+      row._items.splice(row._items.indexOf(it), 1);
+      renderAttached(row);
+    });
+    li.appendChild(span);
+    li.appendChild(rm);
+    ul.appendChild(li);
+  });
+}
+
 /* ---------- הקלטה בדף ---------- */
 function setupRecorder(row) {
   const btn = row.querySelector('.rec-btn');
   const state = row.querySelector('.rec-state');
   const player = row.querySelector('.rec-play');
-  const redo = row.querySelector('.rec-redo');
   if (!recorderSupported()) {
     btn.hidden = true;
     row.querySelector('.rec-unsupported').hidden = false;
@@ -126,7 +167,6 @@ function setupRecorder(row) {
   }
   row._recorder = null;
   row._chunks = [];
-  row._recordedBlob = null;
   btn.addEventListener('click', async () => {
     if (row._recorder && row._recorder.state === 'recording') { stopRecording(row); return; }
     try {
@@ -138,29 +178,22 @@ function setupRecorder(row) {
       rec.onstop = () => {
         stream.getTracks().forEach(t => t.stop());
         const mime = rec.mimeType || 'audio/webm';
-        row._recordedBlob = new Blob(row._chunks, { type: mime });
-        player.src = URL.createObjectURL(row._recordedBlob);
+        const blob = new Blob(row._chunks, { type: mime });
+        const item = { blob, name: 'recording-' + Date.now() + '.' + extFromMime(mime), type: mime, size: blob.size, recorded: true };
+        addItem(row, item);
+        row._previewItem = item;
+        player.src = URL.createObjectURL(blob);
         player.hidden = false;
-        redo.hidden = false;
         btn.textContent = 'הקלטה כאן בדף';
-        state.textContent = 'נשמרה הקלטה (' + fmtSize(row._recordedBlob.size) + ') — אפשר להאזין לפני השליחה';
-        row.querySelector('.sample-file').value = '';
+        state.textContent = 'נשמרה הקלטה (' + fmtSize(blob.size) + ') — נוספה לרשימת המצורפים; אפשר להאזין לפני השליחה';
       };
       rec.start();
       btn.textContent = 'עצירת הקלטה';
       state.textContent = 'מקליט… לחצו שוב לעצירה';
       player.hidden = true;
-      redo.hidden = true;
     } catch (err) {
       state.textContent = 'לא ניתן לגשת למיקרופון — בדקו הרשאות או העלו קובץ.';
     }
-  });
-  redo.addEventListener('click', () => {
-    row._recordedBlob = null;
-    player.hidden = true;
-    player.removeAttribute('src');
-    redo.hidden = true;
-    state.textContent = '';
   });
 }
 function stopRecording(row) {
@@ -192,15 +225,13 @@ async function submitForm(ev) {
   const rows = [...document.querySelectorAll('#samples-list .sample-row')];
   const samples = [];
   for (const row of rows) {
-    const file = row.querySelector('.sample-file').files[0];
     const nusachSel = row.querySelector('.sample-nusach');
     const nusach = nusachSel.value ? selectFinalValue(nusachSel) : '';
     const desc = row.querySelector('.sample-desc').value.trim();
-    const blob = file || row._recordedBlob;
-    if (blob && !nusachSel.value) { showError('בחרו נוסח לכל דוגמת קריאה.'); return; }
-    if (blob) {
-      const name = file ? file.name : 'recording.' + extFromMime(blob.type);
-      samples.push({ blob, name, type: blob.type || 'audio/webm', size: blob.size, nusach, desc });
+    const items = row._items || [];
+    if (items.length && !nusachSel.value) { showError('בחרו נוסח לכל דוגמת קריאה.'); return; }
+    for (const it of items) {
+      samples.push({ blob: it.blob, name: it.name, type: it.type || 'audio/webm', size: it.size, nusach, desc });
     }
   }
   if (!samples.length) { showError('צרפו לפחות דוגמת קריאה אחת — בהעלאה או בהקלטה בדף.'); return; }
