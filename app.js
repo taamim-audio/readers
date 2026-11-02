@@ -2,10 +2,17 @@
 /* טעמים — מערכת פניות קוראים. Backend: Supabase (anon insert-only; reviewer reads via sign-in). */
 const SUPABASE_URL = 'https://gpipsjqkntcyczoxnnwa.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_9zCWAwdh5h1euDJ67i0LuA_nSM9iW_Y';
-const APP_VERSION = '11';
+const APP_VERSION = '12';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { flowType: 'implicit' } });
 const STATUSES = ['חדש', 'בבדיקה', 'זומן לראיון', 'התקבל', 'נדחה'];
 const OTHER = 'אחר';
+/* טקסטי הקריאה הקבועים — סופקו על ידי מנהל היוזמה, כולל ניקוד וטעמים */
+const TORAH_REF = 'בראשית א, פסוקים א–ב';
+const TORAH_TEXT = "בְּרֵאשִׁ֖ית בָּרָ֣א אֱלֹהִ֑ים אֵ֥ת הַשָּׁמַ֖יִם וְאֵ֥ת הָאָֽרֶץ׃ וְהָאָ֗רֶץ הָיְתָ֥ה תֹ֙הוּ֙ וָבֹ֔הוּ וְחֹ֖שֶׁךְ עַל־פְּנֵ֣י תְה֑וֹם וְר֣וּחַ אֱלֹהִ֔ים מְרַחֶ֖פֶת עַל־פְּנֵ֥י הַמָּֽיִם׃";
+const HAFTARAH_REF = 'הפטרת בראשית — ישעיהו מב, פסוקים ה–ו';
+const HAFTARAH_TEXT = "כֹּֽה־אָמַ֞ר הָאֵ֣ל׀ יְהוָ֗ה בּוֹרֵ֤א הַשָּׁמַ֙יִם֙ וְנ֣וֹטֵיהֶ֔ם רֹקַ֥ע הָאָ֖רֶץ וְצֶאֱצָאֶ֑יהָ נֹתֵ֤ן נְשָׁמָה֙ לָעָ֣ם עָלֶ֔יהָ וְר֖וּחַ לַהֹלְכִ֥ים בָּֽהּ׃ אֲנִ֧י יְהוָ֛ה קְרָאתִ֥יךָֽ בְצֶ֖דֶק וְאַחְזֵ֣ק בְּיָדֶ֑ךָ וְאֶצָּרְךָ֗ וְאֶתֶּנְךָ֛ לִבְרִ֥ית עָ֖ם לְא֥וֹר גּוֹיִֽם׃";
+const KIND_LABELS = { torah: 'תורה', haftarah: 'הפטרה' };
+
 
 /* ---------- עזר ---------- */
 function esc(s) {
@@ -75,13 +82,20 @@ let sampleCount = 0;
 function recorderSupported() {
   return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
 }
-function addSampleRow() {
-  sampleCount++;
+function addSampleRow(kind) {
+  kind = (kind === 'haftarah') ? 'haftarah' : 'torah';
+  const isTorah = kind === 'torah';
+  if (isTorah) sampleCount++;
   const wrap = document.createElement('div');
   wrap.className = 'sample-row';
+  wrap.dataset.kind = kind;
   wrap.innerHTML =
-    '<div class="row-head"><span>דוגמה ' + sampleCount + '</span>' +
-    '<button type="button" class="remove-sample" title="הסרה">✕</button></div>' +
+    '<div class="row-head"><span>' + (isTorah ? 'דוגמה ' + sampleCount : 'הפטרה') + '</span>' +
+    (isTorah ? '<button type="button" class="remove-sample" title="הסרה">✕</button>' : '') + '</div>' +
+    '<div class="verse-box">' +
+    '<div class="verse-ref">הטקסט לקריאה: ' + (isTorah ? TORAH_REF : HAFTARAH_REF) + '</div>' +
+    '<div class="verse-text">' + (isTorah ? TORAH_TEXT : HAFTARAH_TEXT) + '</div>' +
+    '</div>' +
     '<label>העלאת קבצי אודיו <span class="hint">(אפשר כמה קבצים, וגם הקלטה בדף — כל מה שמצורף נשלח)</span>' +
     '<input type="file" accept="audio/*" class="sample-file" multiple></label>' +
     '<div class="rec-block">' +
@@ -91,14 +105,10 @@ function addSampleRow() {
     '</div>' +
     '<ul class="attached-list"></ul>' +
     '<p class="hint rec-unsupported" hidden>הדפדפן לא תומך בהקלטה ישירה — אפשר להעלות קובץ אודיו קיים.</p>' +
-    '<div class="grid-2">' +
     '<label>נוסח הדוגמה <span class="req">*</span>' +
     '<select class="sample-nusach" required>' +
     '<option value="">בחרו…</option><option>אשכנזי</option><option>ספרדי ירושלמי</option><option>ספרדי מרוקאי</option><option>תימני</option><option>אחר</option>' +
-    '</select></label>' +
-    '<label>מה מוקלט? (פרשה / פסוקים)' +
-    '<input type="text" class="sample-desc" placeholder="למשל: בראשית א׳"></label>' +
-    '</div>';
+    '</select></label>';
   wrap.querySelector('.remove-sample').addEventListener('click', () => {
     stopRecording(wrap);
     wrap.remove();
@@ -111,7 +121,7 @@ function addSampleRow() {
   });
   wireOtherField(wrap.querySelector('.sample-nusach'));
   setupRecorder(wrap);
-  document.getElementById('samples-list').appendChild(wrap);
+  document.getElementById(isTorah ? 'samples-list' : 'haftarah-block').appendChild(wrap);
 }
 function renumberSamples() {
   document.querySelectorAll('#samples-list .sample-row .row-head span')
@@ -222,19 +232,20 @@ async function submitForm(ev) {
       if (!t || !t.value.trim()) { showError('בכל בחירת "אחר" צריך לפרט בכתב — השלימו את השדה החסר.'); return; }
     }
   }
-  const rows = [...document.querySelectorAll('#samples-list .sample-row')];
+  const rows = [...document.querySelectorAll('#samples-list .sample-row, #haftarah-block .sample-row')];
   const samples = [];
   for (const row of rows) {
+    const kind = row.dataset.kind || 'torah';
     const nusachSel = row.querySelector('.sample-nusach');
     const nusach = nusachSel.value ? selectFinalValue(nusachSel) : '';
-    const desc = row.querySelector('.sample-desc').value.trim();
+    const desc = kind === 'haftarah' ? HAFTARAH_REF : TORAH_REF;
     const items = row._items || [];
     if (items.length && !nusachSel.value) { showError('בחרו נוסח לכל דוגמת קריאה.'); return; }
     for (const it of items) {
-      samples.push({ blob: it.blob, name: it.name, type: it.type || 'audio/webm', size: it.size, nusach, desc });
+      samples.push({ blob: it.blob, name: it.name, type: it.type || 'audio/webm', size: it.size, nusach, desc, kind });
     }
   }
-  if (!samples.length) { showError('צרפו לפחות דוגמת קריאה אחת — בהעלאה או בהקלטה בדף.'); return; }
+  if (!samples.some(s => s.kind === 'torah')) { showError('צרפו לפחות דוגמת קריאה אחת — בהעלאה או בהקלטה בדף.'); return; }
 
   const btn = document.getElementById('submit-btn');
   btn.disabled = true; btn.textContent = 'שולח…';
@@ -272,7 +283,8 @@ async function submitForm(ev) {
       content_type: s.type,
       size_bytes: s.size,
       nusach: s.nusach,
-      description: s.desc || null
+      description: s.desc || null,
+      kind: s.kind || 'torah'
     }));
     const insS = await sb.from('samples').insert(sampleRows);
     if (insS.error) throw new Error('insert samples: ' + insS.error.message);
@@ -280,7 +292,8 @@ async function submitForm(ev) {
     f.reset();
     document.querySelectorAll('#apply-form .other-text').forEach(t => { t.hidden = true; t.required = false; });
     document.getElementById('samples-list').innerHTML = '';
-    sampleCount = 0; addSampleRow();
+    document.getElementById('haftarah-block').innerHTML = '';
+    sampleCount = 0; addSampleRow(); addSampleRow('haftarah');
     document.getElementById('apply-form').hidden = true;
     document.querySelector('#view-apply .intro').hidden = true;
     document.getElementById('apply-success').hidden = false;
@@ -377,7 +390,7 @@ function renderApps(filter) {
       const dlName = a.name + ' - ' + s.nusach + (s.description ? ' - ' + s.description : '') + '.' + extOf(s.filename);
       samplesHtml +=
         '<div class="sample-item">' +
-        '<div class="sample-meta">' + esc(s.nusach) +
+        '<div class="sample-meta"><span class="kind-chip">' + (KIND_LABELS[s.kind] || KIND_LABELS.torah) + '</span>' + esc(s.nusach) +
         (s.description ? ' — ' + esc(s.description) : '') +
         ' <span style="opacity:.6">(' + esc(s.filename) + ', ' + fmtSize(s.size_bytes) + ')</span></div>' +
         (s.signedUrl
@@ -438,7 +451,7 @@ function exportXlsx() {
   const rows = adminApps.map(a => [
     a.name, a.phone, a.email || '', a.area, a.yeshiva, a.nusach, a.experience || '',
     a.employment, a.military,
-    (a.samples || []).map(s => s.nusach + (s.description ? ' (' + s.description + ')' : '')).join('; '),
+    (a.samples || []).map(s => (KIND_LABELS[s.kind] || KIND_LABELS.torah) + ': ' + s.nusach + (s.description ? ' (' + s.description + ')' : '')).join('; '),
     a.notes || '', a.status, a.reviewer_notes || '',
     new Date(a.created_at).toLocaleString('he-IL')
   ]);
@@ -466,7 +479,7 @@ async function downloadZip() {
       try {
         const resp = await fetch(s.signedUrl);
         const blob = await resp.blob();
-        dir.file((i + 1) + ' - ' + s.nusach + (s.description ? ' - ' + s.description : '') + '.' + extOf(s.filename), blob);
+        dir.file((i + 1) + ' - ' + (KIND_LABELS[s.kind] || KIND_LABELS.torah) + ' - ' + s.nusach + (s.description ? ' - ' + s.description : '') + '.' + extOf(s.filename), blob);
       } catch (e) { /* מדלגים על קובץ שנכשל */ }
     }
   }
@@ -483,7 +496,8 @@ async function downloadZip() {
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('#apply-form select').forEach(wireOtherField);
   addSampleRow();
-  document.getElementById('add-sample').addEventListener('click', addSampleRow);
+  addSampleRow('haftarah');
+  document.getElementById('add-sample').addEventListener('click', () => addSampleRow('torah'));
   document.getElementById('apply-form').addEventListener('submit', submitForm);
   document.getElementById('magic-btn').addEventListener('click', sendMagicLink);
   const vb = document.getElementById('app-version');
