@@ -7,11 +7,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=21">
+<link rel="stylesheet" href="styles.css?v=22">
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script defer src="app.js?v=21"></script>
+<script defer src="app.js?v=22"></script>
 </head>
 <body>
 
@@ -161,6 +161,43 @@
         <button class="btn btn-soft" id="export-zip">ייצוא מלא (אקסל + הקלטות)</button>
         <input type="search" id="search" placeholder="חיפוש לפי שם, טלפון, ישיבה, נוסח…">
         <button class="btn btn-soft" id="signout-btn">יציאה</button>
+      </div>
+      <div class="filter-bar" id="filter-bar">
+        <label class="filter-item">סטטוס
+          <select id="f-status">
+            <option value="">הכל</option>
+            <option>חדש</option>
+            <option>בבדיקה</option>
+            <option>זומן לראיון</option>
+            <option>התקבל</option>
+            <option>נדחה</option>
+          </select>
+        </label>
+        <label class="filter-item">נוסח
+          <select id="f-nusach"><option value="">הכל</option></select>
+        </label>
+        <label class="filter-item">ישיבה
+          <select id="f-yeshiva"><option value="">הכל</option></select>
+        </label>
+        <label class="filter-item">מעמד תעסוקתי
+          <select id="f-employment"><option value="">הכל</option></select>
+        </label>
+        <label class="filter-item">מצב צבאי
+          <select id="f-military"><option value="">הכל</option></select>
+        </label>
+        <label class="filter-item">ניסיון
+          <select id="f-experience"><option value="">הכל</option></select>
+        </label>
+        <label class="filter-item">מיון
+          <select id="sort-by">
+            <option value="submitted" selected>סדר ההגשה</option>
+            <option value="status">סטטוס</option>
+            <option value="nusach">נוסח</option>
+            <option value="exp-desc">ניסיון: מהרבה למעט</option>
+            <option value="exp-asc">ניסיון: ממעט להרבה</option>
+          </select>
+        </label>
+        <button type="button" class="btn btn-soft" id="clear-filters">ניקוי סינון</button>
       </div>
     </div>
     <div id="apps-list"></div>

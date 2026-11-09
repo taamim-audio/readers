@@ -2,7 +2,7 @@
 /* טעמים — מערכת פניות קוראים. Backend: Supabase (anon insert-only; reviewer reads via sign-in). */
 const SUPABASE_URL = 'https://gpipsjqkntcyczoxnnwa.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_9zCWAwdh5h1euDJ67i0LuA_nSM9iW_Y';
-const APP_VERSION = '21';
+const APP_VERSION = '22';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { flowType: 'implicit' } });
 const STATUSES = ['חדש', 'בבדיקה', 'זומן לראיון', 'התקבל', 'נדחה'];
 const OTHER = 'אחר';
@@ -434,7 +434,8 @@ async function refreshAdminList() {
     }
   }
   renderStats();
-  renderApps(document.getElementById('search').value.trim());
+  populateFilters();
+  renderApps();
   repairMissingConversions(); /* רקע — לא חוסם את התצוגה */
 }
 /* תיקון אוטומטי: דוגמת webm/opus בלי עותק AAC מומרת בדפדפן של הבוחן (אם הוא יודע לקודד AAC)
@@ -495,7 +496,7 @@ async function repairMissingConversions() {
   } finally {
     repairRunning = false;
   }
-  if (changed) renderApps(document.getElementById('search').value.trim());
+  if (changed) renderApps();
 }
 function renderStats() {
   const byStatus = {};
@@ -509,14 +510,72 @@ function renderStats() {
 function field(label, val) {
   return val ? '<div class="field"><b>' + label + ':</b> ' + esc(val) + '</div>' : '';
 }
-function renderApps(filter) {
+/* ---------- סינון ומיון ---------- */
+/* אפשרויות הסינון נבנות מהערכים שקיימים בפניות בפועל (ישיבה היא שדה חופשי) */
+const FILTER_FIELDS = [
+  { id: 'f-nusach', field: 'nusach' },
+  { id: 'f-yeshiva', field: 'yeshiva' },
+  { id: 'f-employment', field: 'employment' },
+  { id: 'f-military', field: 'military' },
+  { id: 'f-experience', field: 'experience' }
+];
+function populateFilters() {
+  for (const f of FILTER_FIELDS) {
+    const sel = document.getElementById(f.id);
+    if (!sel) continue;
+    const prev = sel.value;
+    const vals = [...new Set(adminApps.map(a => (a[f.field] || '').trim()).filter(Boolean))]
+      .sort((x, y) => x.localeCompare(y, 'he'));
+    sel.innerHTML = '<option value="">הכל</option>' +
+      vals.map(v => '<option>' + esc(v) + '</option>').join('');
+    sel.value = vals.includes(prev) ? prev : '';
+  }
+}
+/* שדה הניסיון הוא טקסט חופשי — מחלצים מספר שנים רק כשכתוב במפורש ("5 שנים") או מספר בלבד;
+   אין המרה מומצאת — מי שלא כתב מספר נשאר "לא ידוע" ומופיע בסוף בשני הכיוונים */
+function experienceYears(text) {
+  const t = (text || '').trim();
+  if (!t) return null;
+  const m = /(\d+(?:\.\d+)?)\s*(?:שנים|שנה|שנ"י|ש"י|years?)/.exec(t);
+  if (m) return parseFloat(m[1]);
+  if (/^\d+(?:\.\d+)?$/.test(t)) return parseFloat(t);
+  return null;
+}
+function renderApps() {
   const list = document.getElementById('apps-list');
   list.innerHTML = '';
-  const q = (filter || '').toLowerCase();
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  const fv = id => document.getElementById(id).value;
+  const fStatus = fv('f-status'), fNusach = fv('f-nusach'), fYeshiva = fv('f-yeshiva'),
+    fEmployment = fv('f-employment'), fMilitary = fv('f-military'), fExperience = fv('f-experience');
   const shown = adminApps.filter(a =>
-    !q || [a.name, a.phone, a.yeshiva, a.nusach, a.area, a.status]
-      .some(v => (v || '').toLowerCase().includes(q)));
-  document.getElementById('empty-state').hidden = shown.length > 0;
+    (!q || [a.name, a.phone, a.yeshiva, a.nusach, a.area, a.status]
+      .some(v => (v || '').toLowerCase().includes(q))) &&
+    (!fStatus || a.status === fStatus) &&
+    (!fNusach || (a.nusach || '').trim() === fNusach) &&
+    (!fYeshiva || (a.yeshiva || '').trim() === fYeshiva) &&
+    (!fEmployment || (a.employment || '').trim() === fEmployment) &&
+    (!fMilitary || (a.military || '').trim() === fMilitary) &&
+    (!fExperience || (a.experience || '').trim() === fExperience));
+  const sortBy = fv('sort-by');
+  if (sortBy === 'status') {
+    shown.sort((x, y) => STATUSES.indexOf(x.status) - STATUSES.indexOf(y.status));
+  } else if (sortBy === 'nusach') {
+    shown.sort((x, y) => (x.nusach || '').localeCompare(y.nusach || '', 'he'));
+  } else if (sortBy === 'exp-desc' || sortBy === 'exp-asc') {
+    const dir = sortBy === 'exp-desc' ? -1 : 1;
+    shown.sort((x, y) => {
+      const ex = experienceYears(x.experience), ey = experienceYears(y.experience);
+      if (ex == null && ey == null) return 0;
+      if (ex == null) return 1;
+      if (ey == null) return -1;
+      return (ex - ey) * dir;
+    });
+  }
+  /* ברירת המחדל ('submitted') משאירה את סדר ההגשה כפי שהגיע מהשרת */
+  const empty = document.getElementById('empty-state');
+  empty.textContent = adminApps.length ? 'אין פניות שתואמות לסינון.' : 'אין פניות עדיין.';
+  empty.hidden = shown.length > 0;
 
   for (const a of shown) {
     const card = document.createElement('div');
@@ -650,7 +709,16 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('signout-btn').addEventListener('click', signOut);
   document.getElementById('export-xlsx').addEventListener('click', downloadXlsx);
   document.getElementById('export-zip').addEventListener('click', downloadZip);
-  document.getElementById('search').addEventListener('input', e => renderApps(e.target.value.trim()));
+  document.getElementById('search').addEventListener('input', () => renderApps());
+  ['f-status', 'f-nusach', 'f-yeshiva', 'f-employment', 'f-military', 'f-experience', 'sort-by']
+    .forEach(id => document.getElementById(id).addEventListener('change', () => renderApps()));
+  document.getElementById('clear-filters').addEventListener('click', () => {
+    ['f-status', 'f-nusach', 'f-yeshiva', 'f-employment', 'f-military', 'f-experience']
+      .forEach(id => { document.getElementById(id).value = ''; });
+    document.getElementById('sort-by').value = 'submitted';
+    document.getElementById('search').value = '';
+    renderApps();
+  });
   sb.auth.onAuthStateChange((event) => {
     if (event === 'SIGNED_IN' && !location.hash.startsWith('#admin')) { location.hash = '#admin'; return; }
     if (location.hash.startsWith('#admin')) renderAdmin();
