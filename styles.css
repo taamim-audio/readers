@@ -192,17 +192,21 @@ fieldset.samples legend{font-weight:800;padding:0 8px}
 
 /* שורת סינון ומיון בראש מסך הניהול */
 .filter-bar{
-  display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
-  gap:10px;align-items:end;
+  display:flex;flex-direction:column;gap:12px;
   margin-top:14px;padding-top:12px;
   border-top:1px dashed var(--gold-light);
 }
-.filter-item{font-size:.8rem;font-weight:800;margin-bottom:0;min-width:0}
+.filter-heading{font-size:.85rem;font-weight:800}
+.filter-grid{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;align-items:end;margin-top:2px;
+}
+.filter-item{font-size:.75rem;font-weight:800;margin-bottom:0;min-width:0}
 .filter-item select{
   width:100%;min-width:0;margin-top:3px;
-  padding:6px 10px;font-size:.9rem;border-radius:10px;
+  padding:5px 8px;font-size:.85rem;border-radius:10px;
 }
-#clear-filters{font-size:.8rem;padding:7px 16px;justify-self:start;align-self:end}
+#clear-filters{font-size:.8rem;padding:6px 14px;justify-self:start;align-self:end}
 
 /* הסכמה לשימוש בהקלטות — ליד כפתור השליחה, קריא וברור */
 .consent-box {
