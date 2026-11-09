@@ -2,7 +2,7 @@
 /* טעמים — מערכת פניות קוראים. Backend: Supabase (anon insert-only; reviewer reads via sign-in). */
 const SUPABASE_URL = 'https://gpipsjqkntcyczoxnnwa.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_9zCWAwdh5h1euDJ67i0LuA_nSM9iW_Y';
-const APP_VERSION = '20';
+const APP_VERSION = '21';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { flowType: 'implicit' } });
 const STATUSES = ['חדש', 'בבדיקה', 'זומן לראיון', 'התקבל', 'נדחה'];
 const OTHER = 'אחר';
@@ -520,7 +520,7 @@ function renderApps(filter) {
 
   for (const a of shown) {
     const card = document.createElement('div');
-    card.className = 'app-card';
+    card.className = 'app-card collapsed ' + statusClass(a.status);
     let samplesHtml = '';
     (a.samples || []).forEach(s => {
       const dlName = a.name + ' - ' + s.nusach + (s.description ? ' - ' + s.description : '') + '.' + extOf(s.filename);
@@ -544,8 +544,10 @@ function renderApps(filter) {
       '<option' + (s === a.status ? ' selected' : '') + '>' + s + '</option>').join('');
     card.innerHTML =
       '<div class="app-head"><h3>' + esc(a.name) + '</h3>' +
-      '<span class="app-date">' + fmtDate(a.created_at) + '</span></div>' +
       '<span class="status-chip ' + statusClass(a.status) + '">' + esc(a.status) + '</span>' +
+      '<span class="app-date">' + fmtDate(a.created_at) + '</span>' +
+      '<span class="chev">▾</span></div>' +
+      '<div class="app-body">' +
       '<div class="fields" style="margin-top:10px">' +
       field('טלפון', a.phone) + field('דוא״ל', a.email) +
       field('אזור', a.area) + field('ישיבה', a.yeshiva) +
@@ -559,7 +561,8 @@ function renderApps(filter) {
       '<div class="app-actions">' +
       '<button class="btn btn-soft notes-save">שמירת הערות</button>' +
       '<button class="btn btn-danger del-btn">מחיקת פנייה</button>' +
-      '</div>';
+      '</div></div>';
+    card.querySelector('.app-head').addEventListener('click', () => card.classList.toggle('collapsed'));
     card.querySelector('.status-select').addEventListener('change', async ev => {
       const r = await sb.from('applications').update({ status: ev.target.value }).eq('public_id', a.public_id);
       if (r.error) alert('עדכון הסטטוס נכשל: ' + r.error.message);

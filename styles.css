@@ -107,11 +107,16 @@ fieldset.samples legend{font-weight:800;padding:0 8px}
 .status-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:10px 0}
 .status-row select{width:auto;margin-top:0}
 .status-chip{border-radius:999px;padding:3px 12px;font-weight:800;font-size:.8rem}
-.st-חדש{background:var(--gold-light)}
-.st-בבדיקה{background:var(--sky2)}
-.st-זומן-לראיון{background:var(--lilac);color:var(--purple)}
-.st-התקבל{background:#c9ecca;color:#2e6b2e}
-.st-נדחה{background:#ffd9d9;color:#a12626}
+.status-chip.st-חדש{background:#DCF0DD;color:#337D37}
+.status-chip.st-בבדיקה,.status-chip.st-זומן-לראיון,.status-chip.st-התקבל{background:var(--gold-light);color:#7A5C00}
+.status-chip.st-נדחה{background:#FFDCDC;color:#C23C3C}
+.app-card.st-חדש{border-color:var(--green);box-shadow:0 3px 0 var(--green)}
+.app-card.st-נדחה{border-color:var(--red);box-shadow:0 3px 0 #C23C3C}
+.app-card.st-בבדיקה,.app-card.st-זומן-לראיון,.app-card.st-התקבל{border-color:var(--gold-outline);box-shadow:0 3px 0 var(--gold-dark)}
+.app-head{cursor:pointer}
+.app-head .chev{transition:transform .15s;font-weight:800}
+.app-card:not(.collapsed) .app-head .chev{transform:rotate(180deg)}
+.app-card.collapsed .app-body{display:none}
 .samples-block{background:var(--panel);border-radius:12px;padding:12px;margin:10px 0}
 .sample-item{border-top:1px solid var(--gold-light);padding:10px 0}
 .sample-item:first-child{border-top:none;padding-top:0}
