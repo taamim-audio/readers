@@ -2,7 +2,7 @@
 /* טעמים — מערכת פניות קוראים. Backend: Supabase (anon insert-only; reviewer reads via sign-in). */
 const SUPABASE_URL = 'https://gpipsjqkntcyczoxnnwa.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_9zCWAwdh5h1euDJ67i0LuA_nSM9iW_Y';
-const APP_VERSION = '24';
+const APP_VERSION = '25';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { flowType: 'implicit' } });
 const STATUSES = ['חדש', 'בבדיקה', 'זומן לראיון', 'התקבל', 'נדחה'];
 const OTHER = 'אחר';
@@ -519,20 +519,26 @@ const FILTER_FIELDS = [
   { id: 'f-military', field: 'military' },
   { id: 'f-experience', field: 'experience' }
 ];
-/* איחוד כתיבים של אותה ישיבה: מפתח השוואה בלבד — הטקסט שהמועמד כתב לא משתנה.
-   מתעלמים מ: ניקוד, גרשיים ופיסוק, "אחר:", המילים ישיבת/ישיבה/הסדר/ההסדר, ה' הידיעה בתחילת מילה,
-   אותיות ו/י (כתיב מלא/חסר) ואותיות כפולות (טעות הקלדה). שמות שרק דומים (מקום אחר, שם אחר) לא מתאחדים. */
-const YESHIVA_NOISE = new Set(['ישיבת', 'ישיבה', 'ישיבות', 'הסדר', 'ההסדר', 'הסדר', 'יש']);
+/* איחוד כתיבים של אותה ישיבה — שמרני: (1) נירמול צורני בלבד (ניקוד, פיסוק/גרשיים, רווחים, הקידומת "אחר:");
+   (2) קבוצות כינוי מפורשות שאושרו ידנית. אין זיהוי "דומה" אוטומטי: כל שם אחר נשאר אפשרות נפרדת.
+   הטקסט שהמועמד כתב לא משתנה. */
+function yeshivaNorm(text) {
+  return (text || '').trim().replace(/^אחר\s*[:：]\s*/, '')
+    .replace(/[\u0591-\u05C7]/g, '').replace(/[\u05F3\u05F4"'`’‘“”.,;:()\-–_/\\]/g, ' ')
+    .replace(/\s+/g, ' ').trim();
+}
+const NOF_PREFIXES = ['', 'ישיבת ', 'ישיבת הסדר ', 'ישיבת ההסדר '];
+const YESHIVA_ALIASES = [
+  /* נוף הגליל: עם/בלי "ישיבת (ה)הסדר" × כתיבים עם ג/ל כפולה בטעות (לפי המשתמש) */
+  NOF_PREFIXES.flatMap(pre => ['נוף הגליל', 'נוף הגלילל', 'נוף הגגליל', 'נוף הגגילל', 'נוף הגגלילל'].map(n => pre + n)),
+  /* עתניאל */
+  ['', 'ישיבת '].flatMap(pre => ['עתניאל', 'עותניאל'].map(n => pre + n))
+];
+const YESHIVA_ALIAS_MAP = new Map();
+YESHIVA_ALIASES.forEach((g, i) => g.forEach(n => YESHIVA_ALIAS_MAP.set(n, 'alias' + i)));
 function yeshivaKey(text) {
-  let t = (text || '').trim().replace(/^אחר\s*[:：-]\s*/, '');
-  t = t.replace(/[\u0591-\u05C7]/g, '').replace(/[\u05F3\u05F4"'`’‘“”.,;:()\-–_/\\]/g, ' ');
-  const words = t.split(/\s+/).filter(Boolean).filter(w => !YESHIVA_NOISE.has(w));
-  const key = words.map(w => {
-    if (w.length >= 4 && w[0] === 'ה') w = w.slice(1);
-    w = w.replace(/[וי]/g, '').replace(/(.)\1+/g, '$1');
-    return w;
-  }).filter(Boolean).join(' ');
-  return key || t.trim();
+  const n = yeshivaNorm(text);
+  return YESHIVA_ALIAS_MAP.get(n) || n;
 }
 /* קבוצות ישיבה: מפתח -> {label (הכתיב הנפוץ ביותר), variants} */
 let yeshivaGroups = new Map();
