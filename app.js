@@ -2,7 +2,7 @@
 /* טעמים — מערכת פניות קוראים. Backend: Supabase (anon insert-only; reviewer reads via sign-in). */
 const SUPABASE_URL = 'https://gpipsjqkntcyczoxnnwa.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_9zCWAwdh5h1euDJ67i0LuA_nSM9iW_Y';
-const APP_VERSION = '23';
+const APP_VERSION = '24';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { flowType: 'implicit' } });
 const STATUSES = ['חדש', 'בבדיקה', 'זומן לראיון', 'התקבל', 'נדחה'];
 const OTHER = 'אחר';
@@ -519,11 +519,79 @@ const FILTER_FIELDS = [
   { id: 'f-military', field: 'military' },
   { id: 'f-experience', field: 'experience' }
 ];
+/* איחוד כתיבים של אותה ישיבה: מפתח השוואה בלבד — הטקסט שהמועמד כתב לא משתנה.
+   מתעלמים מ: ניקוד, גרשיים ופיסוק, "אחר:", המילים ישיבת/ישיבה/הסדר/ההסדר, ה' הידיעה בתחילת מילה,
+   אותיות ו/י (כתיב מלא/חסר) ואותיות כפולות (טעות הקלדה). שמות שרק דומים (מקום אחר, שם אחר) לא מתאחדים. */
+const YESHIVA_NOISE = new Set(['ישיבת', 'ישיבה', 'ישיבות', 'הסדר', 'ההסדר', 'הסדר', 'יש']);
+function yeshivaKey(text) {
+  let t = (text || '').trim().replace(/^אחר\s*[:：-]\s*/, '');
+  t = t.replace(/[\u0591-\u05C7]/g, '').replace(/[\u05F3\u05F4"'`’‘“”.,;:()\-–_/\\]/g, ' ');
+  const words = t.split(/\s+/).filter(Boolean).filter(w => !YESHIVA_NOISE.has(w));
+  const key = words.map(w => {
+    if (w.length >= 4 && w[0] === 'ה') w = w.slice(1);
+    w = w.replace(/[וי]/g, '').replace(/(.)\1+/g, '$1');
+    return w;
+  }).filter(Boolean).join(' ');
+  return key || t.trim();
+}
+/* קבוצות ישיבה: מפתח -> {label (הכתיב הנפוץ ביותר), variants} */
+let yeshivaGroups = new Map();
+function buildYeshivaGroups() {
+  const groups = new Map();
+  for (const a of adminApps) {
+    const v = (a.yeshiva || '').trim();
+    if (!v) continue;
+    const k = yeshivaKey(v);
+    if (!groups.has(k)) groups.set(k, { counts: new Map() });
+    const c = groups.get(k).counts;
+    c.set(v, (c.get(v) || 0) + 1);
+  }
+  for (const g of groups.values()) {
+    const sorted = [...g.counts.entries()].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0], 'he'));
+    g.label = sorted[0][0];
+    g.variants = sorted.map(e => e[0]);
+  }
+  yeshivaGroups = groups;
+}
+/* מצב צבאי: "אחר: בשל"ת" הוא הכתיב הנכון (לפי הבקשה); "אחר: בשלט" מאוחד איתו. שאר התשובות לא מתאחדות */
+const MILITARY_CANON = [{ label: 'אחר: בשל"ת', keys: ['אחר: בשלת', 'אחר: בשלט'] }];
+function militaryKey(text) {
+  const t = (text || '').trim();
+  const flat = t.replace(/[\u05F3\u05F4"'`’‘“”]/g, '').replace(/\s+/g, ' ');
+  for (const c of MILITARY_CANON) if (c.keys.includes(flat)) return c.keys[0];
+  return t;
+}
 function populateFilters() {
+  buildYeshivaGroups();
   for (const f of FILTER_FIELDS) {
     const sel = document.getElementById(f.id);
     if (!sel) continue;
     const prev = sel.value;
+    if (f.field === 'yeshiva') {
+      const keys = [...yeshivaGroups.keys()]
+        .sort((x, y) => yeshivaGroups.get(x).label.localeCompare(yeshivaGroups.get(y).label, 'he'));
+      sel.innerHTML = '<option value="">הכל</option>' + keys.map(k => {
+        const g = yeshivaGroups.get(k);
+        const title = g.variants.length > 1 ? ' title="' + esc(g.variants.join(' / ')) + '"' : '';
+        return '<option value="' + esc(k) + '"' + title + '>' + esc(g.label) + '</option>';
+      }).join('');
+      sel.value = keys.includes(prev) ? prev : '';
+      continue;
+    }
+    if (f.field === 'military') {
+      const m = new Map();
+      for (const a of adminApps) {
+        const v = (a.military || '').trim();
+        if (!v) continue;
+        const k = militaryKey(v), c = MILITARY_CANON.find(x => x.keys[0] === k);
+        if (!m.has(k)) m.set(k, c ? c.label : v);
+      }
+      const keys = [...m.keys()].sort((x, y) => m.get(x).localeCompare(m.get(y), 'he'));
+      sel.innerHTML = '<option value="">הכל</option>' +
+        keys.map(k => '<option value="' + esc(k) + '">' + esc(m.get(k)) + '</option>').join('');
+      sel.value = keys.includes(prev) ? prev : '';
+      continue;
+    }
     const vals = [...new Set(adminApps.map(a => (a[f.field] || '').trim()).filter(Boolean))]
       .sort((x, y) => x.localeCompare(y, 'he'));
     sel.innerHTML = '<option value="">הכל</option>' +
@@ -553,9 +621,9 @@ function renderApps() {
       .some(v => (v || '').toLowerCase().includes(q))) &&
     (!fStatus || a.status === fStatus) &&
     (!fNusach || (a.nusach || '').trim() === fNusach) &&
-    (!fYeshiva || (a.yeshiva || '').trim() === fYeshiva) &&
+    (!fYeshiva || yeshivaKey(a.yeshiva) === fYeshiva) &&
     (!fEmployment || (a.employment || '').trim() === fEmployment) &&
-    (!fMilitary || (a.military || '').trim() === fMilitary) &&
+    (!fMilitary || militaryKey(a.military) === fMilitary) &&
     (!fExperience || (a.experience || '').trim() === fExperience));
   const sortBy = fv('sort-by');
   if (sortBy === 'status') {
